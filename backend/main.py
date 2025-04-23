@@ -2,8 +2,8 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import settings
-from endpoints import summaries
+from backend.config import settings
+from backend.endpoints import summaries
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,5 +39,5 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    #uvicorn main:app --reload
+    #uvicorn backend.main:app --reload
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
