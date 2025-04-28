@@ -14,7 +14,11 @@ class Settings:
     API_TITLE = "Hungarian News Summary API"
     API_VERSION = "1.0.0"
 
-    CORS_ORIGINS = ["http://localhost:5173"]  # Vite's default port
+    CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS", 
+    "https://yourusername.github.io"
+    "http://localhost:5173"
+).split(",")
 
     GEMINI_MODEL = "gemini-2.0-flash"
     GEMINI_TEMPERATURE = 0.3
