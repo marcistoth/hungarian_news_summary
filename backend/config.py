@@ -16,6 +16,9 @@ class Settings:
 
     CORS_ORIGINS = ["http://localhost:5173"]  # Vite's default port
 
+    GEMINI_MODEL = "gemini-2.0-flash"
+    GEMINI_TEMPERATURE = 0.3
+
     DATABASE_URL: str = os.getenv("DATABASE_URL", default_database_url)
 
 settings = Settings()

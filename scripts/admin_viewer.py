@@ -1,8 +1,11 @@
 import sys
 import os
+from dotenv import load_dotenv
 
 # allow importing from backend
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dotenv_path = os.path.join(project_root, '.env')
+load_dotenv(dotenv_path=dotenv_path)
 sys.path.append(project_root)
 
 from flask import Flask
@@ -18,6 +21,10 @@ from backend.database import Base # Import Base to ensure models are registered
 
 # Create Flask application
 app = Flask(__name__)
+
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY')
+if not app.config['SECRET_KEY']:
+    raise ValueError("No FLASK_SECRET_KEY set for Flask application. Please set it in the .env file.")
 
 db_filename = os.path.basename(settings.DATABASE_URL.split("///")[-1])
 db_path = os.path.join(project_root, 'backend', db_filename)
