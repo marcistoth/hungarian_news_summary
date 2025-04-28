@@ -1,6 +1,6 @@
 import React from 'react';
 import { Summary } from '../types';
-import { parseSummaryContent, ParsedSummarySection } from '../utils/parseSummary';
+import { parseSummaryContent } from '../utils/parseSummary';
 
 interface SummaryModalProps {
   summary: Summary | null;

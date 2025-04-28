@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 import requests
 from typing import List
+from dateutil import parser as date_parser
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
@@ -244,13 +245,252 @@ def scrape_origo():
     asyncio.run(insert_summary_to_db(summary_obj))
     print(f"origo summary inserted into db")
 
+def scrape_mandiner():    
+    url = "https://www.mandiner.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    elements = soup.find_all(class_='article-card-link')
+
+    hrefs = []
+    for element in elements:
+        href = element.get('href')
+        if href and not href.startswith('https') and href not in hrefs:
+            hrefs.append(href)
+            print(href)
     
+    articles = []
+    
+    for href in hrefs:
+        response = requests.get(url + href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('h1', class_='article-page-title')
 
+        if title_element is None:
+            print(f"No title found for {href}")
+            continue
 
+        title = title_element.text.strip().replace('\n', '')
+
+        published_time_tag = soup.find('meta', attrs={'name': 'article:published_time'})
+        publication_date = None
+        if published_time_tag and published_time_tag.get('content'):
+            date_str = published_time_tag['content']
+            try:
+                # Parse the ISO 8601 format string
+                publication_datetime = datetime.fromisoformat(date_str)
+                # Extract just the date part
+                publication_date = publication_datetime.date()
+            except ValueError:
+                print(f"Warning: Could not parse date string '{date_str}' from meta tag in {href}")
+        else:
+            print(f"Warning: Could not find publication time meta tag in {href}")
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        header_element = soup.find(class_='article-page-lead').text.strip().replace('\n', '')
+        content_element = soup.find_all(class_='block-content')
+
+        for content in content_element:
+            for i_tag in content.find_all('i'):
+                if i_tag.text.startswith('Nyitókép'):
+                    i_tag.decompose()
+
+        content_element = ' '.join([content.text.strip().replace('\n', '') for content in content_element])
+
+        content = header_element + " " + content_element
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+        article_obj = ScrapedArticle(
+            url=url + href,
+            domain="mandiner",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(tz=gmt_plus_2),
+            publication_date=publication_date,
+        )
+        articles.append(article_obj)
+
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"mandiner response generated")
+    summary_obj = Summary(
+        domain="mandiner",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    asyncio.run(insert_summary_to_db(summary_obj))
+    print(f"mandiner summary inserted into db")
+
+def scrape_hvg():
+    url = "https://www.hvg.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    h1_elements = soup.find_all('h1')
+
+    hrefs = []
+
+    for h1 in h1_elements:
+        a_elements = h1.find_all('a', href=True)
+        for a in a_elements:
+            href = a['href']
+            if href and not href.startswith('https') and href not in hrefs:
+                hrefs.append(href)
+    
+    articles = []
+
+    for href in hrefs:
+        if(href.startswith('/360')):
+            print("-----------------360 articles are locked behind a paywall, cannot be parsed-----------------")
+            continue
+
+        response = requests.get(url + href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('h1')
+        title = title_element.text.strip().replace('\n', '')
+
+        published_time_tag = soup.find('meta', attrs={'property': 'article:published_time'})
+
+        publication_date = None
+        if published_time_tag and published_time_tag.get('content'):
+            date_str = published_time_tag['content']
+            try:
+                # Parse the ISO 8601 format string
+                publication_datetime = date_parser.parse(date_str)
+                # Extract just the date part
+                publication_date = publication_datetime.date()
+            except ValueError:
+                print(f"Warning: Could not parse date string '{date_str}' from meta tag in {href}")
+        else:
+            print(f"Warning: Could not find publication time meta tag in {href}")
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        content_header = soup.find('p', class_='article-lead').text.strip().replace('\n', '')
+        content_divs= soup.find_all("div", class_="article-content")
+        content = content_divs[1].text.strip().replace('\n', ' ')
+        merged_content = content_header + " " + content
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+        article_obj = ScrapedArticle(
+            url=url + href,
+            domain="hvg",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(tz=gmt_plus_2),
+            publication_date=publication_date,
+        )
+        articles.append(article_obj)
+
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"hvg response generated")
+    summary_obj = Summary(
+        domain="hvg",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    asyncio.run(insert_summary_to_db(summary_obj))
+    print(f"hvg summary inserted into db")
+
+def scrape_negynegynegy():
+    url = "https://www.444.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    a_elements = soup.find_all('a', href=True)
+
+    hrefs = []
+    for a in a_elements:
+        href = a['href']
+        if href and href.startswith('https://444.hu/') and href not in hrefs:
+            hrefs.append(href)
+            print(href)
+    
+    hrefs.remove('https://444.hu/kor')
+    hrefs.remove('https://444.hu/szerzoi-jogok')
+    hrefs.remove('https://444.hu/adatvedelmi-nyilatkozat')
+    hrefs.remove('https://444.hu/mediaajanlat')
+    hrefs.remove('https://444.hu/tamogatas-altalanos-szerzodesi-feltetelek')
+
+    articles = []
+
+    for href in hrefs:
+
+        response = requests.get(href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('h1', class_='_18v5wa35')
+        if title_element is None:
+            print(f"No title found for {href}")
+            continue
+        title = title_element.text.strip().replace('\n', '')
+
+        published_time_tag = soup.find('meta', attrs={'property': 'article:published_time'})
+
+        publication_date = None
+        if published_time_tag and published_time_tag.get('content'):
+            date_str = published_time_tag['content']
+            try:
+                # Parse the ISO 8601 format string
+                publication_datetime = date_parser.parse(date_str)
+                # Extract just the date part
+                publication_date = publication_datetime.date()
+            except ValueError:
+                print(f"Warning: Could not parse date string '{date_str}' from meta tag in {href}")
+        else:
+            print(f"Warning: Could not find publication time meta tag in {href}")
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        #  if there is a html element where the href is #livestream__icon-live, then the article should be skipped, cause its live and has a different format
+        if soup.find(href='#livestream__icon-live') is not None:
+            print(f"Article is a live stream, skipping {href}")
+            continue
+
+        content_element = soup.find('div', class_='jogfs53')
+        for tag in content_element.find_all(True):
+            if tag.name != 'p':
+                tag.decompose()
+        content = content_element.text.strip().replace('\n', '')
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+        article_obj = ScrapedArticle(
+            url=url + href,
+            domain="444",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(tz=gmt_plus_2),
+            publication_date=publication_date,
+        )
+        articles.append(article_obj)
+
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"444 response generated")
+    summary_obj = Summary(
+        domain="444",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    asyncio.run(insert_summary_to_db(summary_obj))
+    print(f"444 summary inserted into db")
 
 
 if __name__ == "__main__":
     print("Running scraper script...")
     scrape_telex()
     scrape_origo()
+    scrape_mandiner()
+    scrape_hvg()
+    scrape_negynegynegy()
     print("Script finished.")

@@ -17,7 +17,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ summary, index, onCardClick }
       className={`
         ${cardBg}
         rounded-xl shadow-md border border-gray-200/60
-        p-6 flex flex-col group cursor-pointer  /* Add cursor-pointer */
+        p-6 flex flex-col group cursor-pointer
         transition duration-300 ease-in-out
         hover:shadow-xl hover:border-primary/30 hover:-translate-y-1.5
       `}
