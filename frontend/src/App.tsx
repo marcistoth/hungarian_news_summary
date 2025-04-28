@@ -4,6 +4,7 @@ import Footer from './components/Footer';
 import SummaryCard from './components/SummaryCard';
 import SummaryModal from './components/SummaryModal';
 import { Summary, SummaryApiResponse } from './types';
+import { API_URL } from './config';
 
 function App() {
   const [summaries, setSummaries] = useState<Summary[]>([]);
@@ -14,14 +15,12 @@ function App() {
   const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  const API_BASE_URL = 'http://localhost:8000';
-
   useEffect(() => {
     const fetchSummaries = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/summaries?language=hu`);
+        const response = await fetch(`${API_URL}/summaries?language=hu`);
         if (!response.ok) {
           let errorDetail = `HTTP error! status: ${response.status}`;
           try {

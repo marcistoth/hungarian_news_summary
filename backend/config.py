@@ -16,7 +16,7 @@ class Settings:
 
     CORS_ORIGINS = os.getenv(
     "CORS_ORIGINS", 
-    "https://yourusername.github.io"
+    "https://marcistoth.github.io"
     "http://localhost:5173"
 ).split(",")
 
