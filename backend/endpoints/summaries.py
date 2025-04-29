@@ -17,16 +17,57 @@ async def get_summaries(
 ):
     """
     Retrieves news summaries from the database for a specific language and date.
+    If no summaries are found for the requested date, returns the most recent from the previous day.
     """
     current_date = date if date is not None else dt_date.today()
-
+    
     try:
-        # Use raw SQL query with asyncpg instead of SQLAlchemy
         rows = await conn.fetch('''
-            SELECT id, domain, language, date, content 
-            FROM summaries 
-            WHERE language = $1 AND date = $2
+            WITH LatestSummaries AS (
+                SELECT 
+                    id,
+                    domain,
+                    language,
+                    date,
+                    content,
+                    created_at,
+                    ROW_NUMBER() OVER (PARTITION BY domain ORDER BY created_at DESC) as row_num
+                FROM 
+                    summaries
+                WHERE 
+                    language = $1 
+                    AND date = $2
+            )
+            SELECT id, domain, language, date, content
+            FROM LatestSummaries
+            WHERE row_num = 1
+            ORDER BY domain
         ''', language, current_date)
+        
+        # If no results, try previous day
+        if not rows:
+            previous_date = current_date - dt_date.resolution
+            rows = await conn.fetch('''
+                WITH LatestSummaries AS (
+                    SELECT 
+                        id,
+                        domain,
+                        language,
+                        date,
+                        content,
+                        created_at,
+                        ROW_NUMBER() OVER (PARTITION BY domain ORDER BY created_at DESC) as row_num
+                    FROM 
+                        summaries
+                    WHERE 
+                        language = $1 
+                        AND date = $2
+                )
+                SELECT id, domain, language, date, content
+                FROM LatestSummaries
+                WHERE row_num = 1
+                ORDER BY domain
+            ''', language, previous_date)
         
         # Convert rows to response models
         response_summaries: List[response_models.Summary] = []

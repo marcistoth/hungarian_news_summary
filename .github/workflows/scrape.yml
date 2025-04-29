@@ -1,8 +1,10 @@
 name: Daily News Scraper
 on:
   schedule:
-    - cron: '0 8 * * *'  # Run daily at 8 AM
-  workflow_dispatch:  # Allow manual triggers
+    # Run every 3 hours from 6:00 to 21:00 (GMT+1)
+    # In UTC: 5:00, 8:00, 11:00, 14:00, 17:00, 20:00
+    - cron: '0 5,8,11,14,17,20 * * *'
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   scrape:
