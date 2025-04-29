@@ -52,6 +52,14 @@ export const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     secondaryColor: "#e3eaf7",     // light blue
     textColor: "#ffffff",          // white text
     logo: "/hungarian_news_summary/logos/mandiner-logo.png"
+  },
+  "24.hu": {
+    name: "24.hu", 
+    domain: "24.hu",
+    primaryColor: "#2657A7",       // keeping current blue
+    secondaryColor: "#e3eaf7",     // light blue
+    textColor: "#ffffff",          // white text
+    logo: "/hungarian_news_summary/logos/24hu-logo.jpg"
   }
 };
 

@@ -10,7 +10,7 @@ interface SummaryCardProps {
   onCardClick: () => void;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ summary, index, onCardClick }) => {
+const SummaryCard: React.FC<SummaryCardProps> = ({ summary, onCardClick }) => {
   const { date, domain } = summary;
   const sourceConfig = getNewsSourceConfig(domain);
   
