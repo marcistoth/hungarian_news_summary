@@ -561,10 +561,10 @@ def scrape_24ponthu():
 
 if __name__ == "__main__":
     print("Running scraper script...")
-    # scrape_telex()
-    # scrape_origo()
-    # scrape_mandiner()
-    # scrape_hvg()
-    # scrape_negynegynegy()
+    scrape_telex()
+    scrape_origo()
+    scrape_mandiner()
+    scrape_hvg()
+    scrape_negynegynegy()
     scrape_24ponthu()
     print("Script finished.")
