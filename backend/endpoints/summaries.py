@@ -1,68 +1,51 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-# Import Pydantic response models
 from backend.models import response as response_models
-# Import DB models
-from backend.models import db_models
 from typing import List, Optional
 from datetime import date as dt_date
-# Import SQLAlchemy components
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select # Use select for queries
-from backend.database import get_db
+import asyncpg
 
 router = APIRouter(tags=["summaries"])
 
+# Database connection pool
+from backend.main import db_pool
+
+# Dependency to get a database connection
+async def get_connection():
+    async with db_pool.acquire() as conn:
+        yield conn
+
 @router.get("/summaries", response_model=response_models.SummaryResponseModel)
 async def get_summaries(
-    language: str = Query(
-        default="hu",
-        description="The language code for the summaries (e.g., 'hu' for Hungarian)."
-    ),
-    date: Optional[dt_date] = Query(
-        default=None,
-        description="The date for which to retrieve summaries (format: YYYY-MM-DD). Defaults to the current date if not provided."
-    ),
-    db: AsyncSession = Depends(get_db)
+    language: str = Query(default="hu"),
+    date: Optional[dt_date] = Query(default=None),
+    conn: asyncpg.Connection = Depends(get_connection)
 ):
     """
     Retrieves news summaries from the database for a specific language and date.
-
-    Args:
-        language (str): Language code. Defaults to "hu".
-        date (Optional[dt_date]): Date for summaries. Defaults to today.
-        db (AsyncSession): Database session dependency.
-
-    Returns:
-        SummaryResponseModel: Contains a list of summaries matching the criteria.
     """
-    domain: str = "general"
     current_date = date if date is not None else dt_date.today()
 
     try:
-        # Construct the query to select summaries matching language and date
-        stmt = select(db_models.Summary).where(
-            db_models.Summary.language == language,
-            db_models.Summary.date == current_date
-        )
-
-        # Execute the query
-        result = await db.execute(stmt)
-        db_summaries = result.scalars().all()
-
-        # Convert SQLAlchemy models to Pydantic models for the response
+        # Use raw SQL query with asyncpg instead of SQLAlchemy
+        rows = await conn.fetch('''
+            SELECT id, domain, language, date, content 
+            FROM summaries 
+            WHERE language = $1 AND date = $2
+        ''', language, current_date)
+        
+        # Convert rows to response models
         response_summaries: List[response_models.Summary] = []
-        for db_summary in db_summaries:
+        for row in rows:
             response_summaries.append(
                 response_models.Summary(
-                    domain=db_summary.domain,
-                    language=db_summary.language,
-                    date=db_summary.date,
-                    content=db_summary.content
+                    domain=row['domain'],
+                    language=row['language'],
+                    date=row['date'],
+                    content=row['content']
                 )
             )
-
+            
         return response_models.SummaryResponseModel(summaries=response_summaries, success=True)
-
     except Exception as e:
-        # Log the error e
+        # Log the error
         raise HTTPException(status_code=500, detail=f"Failed to fetch summaries: {str(e)}")
