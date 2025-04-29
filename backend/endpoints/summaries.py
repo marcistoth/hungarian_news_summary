@@ -6,13 +6,8 @@ import asyncpg
 
 router = APIRouter(tags=["summaries"])
 
-# Database connection pool
-from backend.main import db_pool
+from backend.database import get_connection
 
-# Dependency to get a database connection
-async def get_connection():
-    async with db_pool.acquire() as conn:
-        yield conn
 
 @router.get("/summaries", response_model=response_models.SummaryResponseModel)
 async def get_summaries(

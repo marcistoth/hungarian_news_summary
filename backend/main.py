@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
 from backend.endpoints import summaries
+from backend.database import lifespan_context
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,6 +20,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.API_TITLE,
         version=settings.API_VERSION,
+        lifespan=lifespan_context
     )
     
     app.add_middleware(

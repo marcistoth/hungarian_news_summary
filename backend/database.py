@@ -1,19 +1,47 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+import os
+import asyncpg
+import logging
+from contextlib import asynccontextmanager
 from backend.config import settings
 
-DATABASE_URL = settings.DATABASE_URL
+logger = logging.getLogger(__name__)
 
-engine = create_async_engine(DATABASE_URL, echo=True) # echo=True for logging SQL
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+# Global connection pool
+db_pool = None
 
-Base = declarative_base()
+async def init_db():
+    """Initialize the database connection pool."""
+    global db_pool
+    try:
+        logger.info("Creating database connection pool...")
+        db_pool = await asyncpg.create_pool(
+            settings.DATABASE_URL,
+            min_size=5,
+            max_size=20
+        )
+        logger.info("Database connection pool created successfully")
+    except Exception as e:
+        logger.error(f"Failed to create database connection pool: {e}")
+        raise
 
-# Dependency to get DB session in FastAPI endpoints
-async def get_db() -> AsyncSession:
-    async with AsyncSessionLocal() as session:
-        yield session
+async def close_db():
+    """Close the database connection pool."""
+    global db_pool
+    if db_pool:
+        logger.info("Closing database connection pool...")
+        await db_pool.close()
+        logger.info("Database connection pool closed")
+
+@asynccontextmanager
+async def lifespan_context(app):
+    """Context manager for FastAPI lifespan."""
+    await init_db()
+    yield
+    await close_db()
+
+async def get_connection():
+    """Dependency for getting a database connection."""
+    if not db_pool:
+        raise RuntimeError("Database connection pool not initialized")
+    async with db_pool.acquire() as conn:
+        yield conn
