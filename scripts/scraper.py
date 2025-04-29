@@ -25,7 +25,7 @@ from llm import llm_service
 
 # Import settings, models, and Base from the backend
 from backend.config import settings
-from backend.models.db_models import ScrapedArticle, Summary
+from backend.models.db_models import ScrapedArticle, Summary, DomainAnalysis
 
 async def get_connection():
     """Returns a database connection from the pool."""
@@ -72,7 +72,173 @@ async def insert_summary_to_db(summary: Summary):
     finally:
         await conn.close()
 
-def scrape_telex():
+async def store_domain_analysis(analysis: DomainAnalysis):
+    """
+    Store domain analysis in the database.
+    
+    Args:
+        analysis: A DomainAnalysis object containing the analysis data
+    """
+    if not analysis or not analysis.topics:
+        print("No analysis data to store")
+        return
+        
+    conn = await get_connection()
+    try:
+        # Insert domain analysis
+        domain_analysis_id = await conn.fetchval('''
+        INSERT INTO domain_analyses (domain, date)
+        VALUES ($1, $2)
+        RETURNING id
+        ''', analysis.domain, analysis.date)
+        
+        # Insert each topic
+        for topic in analysis.topics:
+            topic_analysis_id = await conn.fetchval('''
+            INSERT INTO topic_analyses 
+            (domain_analysis_id, topic_name, political_leaning, sentiment, framing)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
+            ''', domain_analysis_id, topic.topic, topic.political_leaning, 
+                topic.sentiment, topic.framing)
+                
+            # Insert key phrases for this topic
+            for phrase in topic.key_phrases:
+                await conn.execute('''
+                INSERT INTO key_phrases (topic_analysis_id, phrase)
+                VALUES ($1, $2)
+                ''', topic_analysis_id, phrase)
+                
+        print(f"Analysis for {analysis.domain} stored successfully")
+    except Exception as e:
+        print(f"Error storing analysis: {e}")
+    finally:
+        await conn.close()
+
+async def generate_cross_source_analysis(target_date=None):
+    """
+    Use LLM to analyze how different news sources cover the same topics.
+    
+    Args:
+        target_date: Optional date to analyze. Defaults to today.
+        
+    Returns:
+        LLM-generated analysis comparing coverage across sources.
+    """
+    if target_date is None:
+        target_date = date.today()
+    
+    conn = await get_connection()
+    try:
+        # Get raw topic data from all sources on the target date
+        source_data_by_domain = {}
+        
+        rows = await conn.fetch('''
+        WITH topic_data AS (
+            SELECT 
+                da.domain,
+                da.date,
+                ta.topic_name,
+                ta.political_leaning,
+                ta.sentiment,
+                ta.framing,
+                array_agg(kp.phrase) as key_phrases
+            FROM 
+                domain_analyses da
+            JOIN 
+                topic_analyses ta ON da.id = ta.domain_analysis_id
+            LEFT JOIN 
+                key_phrases kp ON ta.id = kp.topic_analysis_id
+            WHERE 
+                da.date = $1
+            GROUP BY
+                da.domain, da.date, ta.id, ta.topic_name, ta.political_leaning, ta.sentiment, ta.framing
+        )
+        SELECT * FROM topic_data
+        ''', target_date)
+        
+        if not rows:
+            return {"error": f"No analysis data found for {target_date}"}
+            
+        # Organize data by domain for LLM input
+        for row in rows:
+            domain = row['domain']
+            if domain not in source_data_by_domain:
+                source_data_by_domain[domain] = []
+                
+            source_data_by_domain[domain].append({
+                "topic": row['topic_name'],
+                "sentiment": row['sentiment'],
+                "political_leaning": row['political_leaning'],
+                "key_phrases": row['key_phrases'],
+                "framing": row['framing']
+            })
+        
+        # Format the data for the LLM prompt
+        llm_input = f"Date: {target_date.isoformat()}\n\n"
+        for domain, topics in source_data_by_domain.items():
+            llm_input += f"Source: {domain}\n"
+            for i, topic in enumerate(topics, 1):
+                llm_input += f"  Topic {i}: {topic['topic']}\n"
+                llm_input += f"    Sentiment: {topic['sentiment']}\n"
+                llm_input += f"    Political Leaning: {topic['political_leaning']}\n"
+                llm_input += f"    Key Phrases: {', '.join(topic['key_phrases'])}\n"
+                llm_input += f"    Framing: {topic['framing']}\n"
+            llm_input += "\n"
+        
+        response = llm_service.cross_source_analysis(target_date, llm_input)
+            
+        return response
+        
+    except Exception as e:
+        print(f"Error generating cross-source analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+    finally:
+        await conn.close()
+
+async def store_cross_source_analysis(analysis_data):
+    """Store the cross-source analysis in the database."""
+    if "error" in analysis_data or not analysis_data.get("unified_topics"):
+        print(f"No valid analysis data to store: {analysis_data}")
+        return
+        
+    conn = await get_connection()
+    try:
+        # Convert to JSON string for storage
+        import json
+        from datetime import datetime
+        
+        analysis_json = json.dumps(analysis_data, ensure_ascii=False)
+        
+        # Convert string date to date object
+        date_str = analysis_data.get("date")
+        if isinstance(date_str, str):
+            try:
+                # Parse the date string to a date object
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                # Fallback to today's date if parsing fails
+                date_obj = date.today()
+                print(f"Warning: Could not parse date '{date_str}', using today's date instead")
+        else:
+            # Use today's date if no date is provided
+            date_obj = date.today()
+            
+        # Store in a new cross_source_analyses table
+        await conn.execute('''
+        INSERT INTO cross_source_analyses (date, analysis_json)
+        VALUES ($1, $2)
+        ''', date_obj, analysis_json)
+            
+        print(f"Cross-source analysis stored successfully for {date_obj}")
+    except Exception as e:
+        print(f"Error storing cross-source analysis: {e}")
+    finally:
+        await conn.close()
+
+async def scrape_telex():
     url = "https://www.telex.hu"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -104,7 +270,16 @@ def scrape_telex():
         
         response = requests.get(url + href)
         soup = BeautifulSoup(response.text, "html.parser")
-        title = soup.find('h1').text.strip().replace('\n', '')
+        title_element = soup.find('h1')
+        if title_element is None:
+            print(f"No h1 tag found for {url + href}")
+            # Try alternative selectors
+            title_element = soup.find(class_='article-title')
+            if title_element is None:
+                print(f"No title element found, skipping {href}")
+                continue
+                
+        title = title_element.text.strip().replace('\n', '')
 
         # if the publication date is not from today, skip the article
         if publication_date != date.today():
@@ -145,11 +320,16 @@ def scrape_telex():
         date=datetime.now(tz=gmt_plus_2),
         content=response
     )
-    asyncio.run(insert_summary_to_db(summary_obj))
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
     print(f"telex summary inserted into db")
 
 
-def scrape_origo(): 
+async def scrape_origo(): 
     url = "https://www.origo.hu"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -233,10 +413,15 @@ def scrape_origo():
         date=datetime.now(tz=gmt_plus_2),
         content=response
     )
-    asyncio.run(insert_summary_to_db(summary_obj))
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
     print(f"origo summary inserted into db")
 
-def scrape_mandiner():    
+async def scrape_mandiner():    
     url = "https://www.mandiner.hu"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -313,10 +498,15 @@ def scrape_mandiner():
         date=datetime.now(tz=gmt_plus_2),
         content=response
     )
-    asyncio.run(insert_summary_to_db(summary_obj))
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
     print(f"mandiner summary inserted into db")
 
-def scrape_hvg():
+async def scrape_hvg():
     url = "https://www.hvg.hu"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -388,10 +578,15 @@ def scrape_hvg():
         date=datetime.now(tz=gmt_plus_2),
         content=response
     )
-    asyncio.run(insert_summary_to_db(summary_obj))
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await  store_domain_analysis(analysis_data)
+
     print(f"hvg summary inserted into db")
 
-def scrape_negynegynegy():
+async def scrape_negynegynegy():
     url = "https://www.444.hu"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -473,10 +668,15 @@ def scrape_negynegynegy():
         date=datetime.now(tz=gmt_plus_2),
         content=response
     )
-    asyncio.run(insert_summary_to_db(summary_obj))
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
     print(f"444 summary inserted into db")
 
-def scrape_24ponthu():
+async def scrape_24ponthu():
     url = "https://www.24.hu"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, "html.parser")
@@ -490,7 +690,6 @@ def scrape_24ponthu():
         href = a['href']
         if href and re.match(date_pattern, href) and href not in hrefs:
             hrefs.append(href)
-            print(href)
 
     articles = []
 
@@ -555,16 +754,47 @@ def scrape_24ponthu():
         date=datetime.now(tz=gmt_plus_2),
         content=response
     )
-    asyncio.run(insert_summary_to_db(summary_obj))
-    print(f"24ponthu summary inserted into db")
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
     
+    await store_domain_analysis(analysis_data)
+
+
+    print(f"24ponthu summary inserted into db")
+
+
+async def run_full_analysis_pipeline():
+    """Run the complete analysis pipeline for all sources."""
+    current_date = date.today()
+    
+    await scrape_telex()
+    await scrape_origo()
+    await scrape_hvg()
+    await scrape_mandiner()
+    await scrape_negynegynegy()
+    await scrape_24ponthu()
+    
+    # But these functions ARE async and need to be awaited
+    try:
+        print("Generating cross-source analysis...")
+        cross_analysis = await generate_cross_source_analysis(current_date)
+
+        #save the analysis in a separate file for debugging
+
+        with open("cross_source_analysis.json", "w", encoding="utf-8") as f:
+            import json
+            json.dump(cross_analysis, f, ensure_ascii=False, indent=4)
+        
+        # Store the cross-source analysis in a new table
+        print("Storing cross-source analysis in database...")
+        await store_cross_source_analysis(cross_analysis)
+        
+        print("Analysis pipeline completed successfully")
+    except Exception as e:
+        print(f"Error in cross-source analysis: {e}")
 
 if __name__ == "__main__":
     print("Running scraper script...")
-    scrape_telex()
-    scrape_origo()
-    scrape_mandiner()
-    scrape_hvg()
-    scrape_negynegynegy()
-    scrape_24ponthu()
+    asyncio.run(run_full_analysis_pipeline())
     print("Script finished.")

@@ -72,7 +72,45 @@ async def create_tables():
         scraped_at TIMESTAMP NOT NULL
     )
     ''')
-    
+
+    await conn.execute('''
+    CREATE TABLE IF NOT EXISTS domain_analyses (
+        id SERIAL PRIMARY KEY,
+        domain VARCHAR(255) NOT NULL,
+        date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    await conn.execute('''
+    CREATE TABLE IF NOT EXISTS topic_analyses (
+        id SERIAL PRIMARY KEY,
+        domain_analysis_id INTEGER NOT NULL REFERENCES domain_analyses(id),
+        topic_name VARCHAR(255) NOT NULL,
+        political_leaning VARCHAR(50) NOT NULL,
+        sentiment VARCHAR(50) NOT NULL,
+        framing TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    await conn.execute('''
+    CREATE TABLE IF NOT EXISTS key_phrases (
+        id SERIAL PRIMARY KEY,
+        topic_analysis_id INTEGER NOT NULL REFERENCES topic_analyses(id),
+        phrase TEXT NOT NULL
+    )
+    ''')
+
+    await conn.execute('''
+    CREATE TABLE IF NOT EXISTS cross_source_analyses (
+        id SERIAL PRIMARY KEY,
+        date DATE NOT NULL,
+        analysis_json JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+        
     print("Database tables created successfully!")
     await conn.close()
 

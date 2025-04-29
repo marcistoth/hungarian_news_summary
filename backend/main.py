@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import settings
-from backend.endpoints import summaries
+from backend.endpoints import summaries, analysis
 from backend.database import lifespan_context
 
 logging.basicConfig(
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     )
     
     app.include_router(summaries.router)
+    app.include_router(analysis.router)
     
     return app
 
