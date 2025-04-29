@@ -20,6 +20,8 @@ function App() {
       setLoading(true);
       setError(null);
       try {
+        // print out the api url name
+        console.log("API URL:", API_URL);
         const response = await fetch(`${API_URL}/summaries?language=hu`);
         if (!response.ok) {
           let errorDetail = `HTTP error! status: ${response.status}`;

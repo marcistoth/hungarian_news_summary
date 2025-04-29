@@ -1,4 +1,3 @@
-# filepath: c:\Users\gyuli\OneDrive\Desktop\ML projects\hungarian-news-summary-app\backend\alembic\env.py
 import asyncio
 from logging.config import fileConfig
 
@@ -23,8 +22,12 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 
 # Import Base from your database setup and models
-from database import Base, DATABASE_URL # Import your Base and DB URL
-from models import db_models # Import your models file to ensure Base knows about them
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database import Base
+from config import settings
+DATABASE_URL = settings.DATABASE_URL
 target_metadata = Base.metadata
 
 # Set the database URL from your config

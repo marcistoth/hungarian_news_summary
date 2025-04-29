@@ -7,9 +7,10 @@ import tailwindcss from '@tailwindcss/vite' // Import the vite plugin
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(), // Add the plugin here
+    tailwindcss(),
   ],
+  base: '/hungarian_news_summary/',
   server: {
-    port: 5173 // Optional: specify port if needed
+    port: 5173
   }
 })

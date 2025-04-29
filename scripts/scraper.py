@@ -1,20 +1,23 @@
 import sys
 import os
 import asyncio
+import asyncpg
 from datetime import date, datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 import requests
 from typing import List
 from dateutil import parser as date_parser
+from dotenv import load_dotenv
+
+load_dotenv()
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
 gmt_plus_2 = timezone(timedelta(hours=2))
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
+db_url = os.getenv("DATABASE_URL")
+
 from llm import llm_service
 
 
@@ -22,64 +25,51 @@ from llm import llm_service
 # Import settings, models, and Base from the backend
 from backend.config import settings
 from backend.models.db_models import ScrapedArticle, Summary
-from backend.database import Base # Needed if creating tables directly (optional here)
+
+async def get_connection():
+    """Returns a database connection from the pool."""
+    return await asyncpg.connect(db_url)
 
 #function which cleans up the scraped article table
 async def cleanup_scraped_articles():
-    """Cleans up the scraped articles table."""
-    # Consider creating the engine and session factory once outside the function
-    # if you call this and other DB functions frequently in the same script run.
-    engine = create_async_engine(settings.DATABASE_URL, echo=True)
-    AsyncSessionFactory = sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
+    """Cleans up the scraped articles table using asyncpg directly."""
+    conn = await get_connection()
+    try:
+        await conn.execute("DELETE FROM scraped_articles")
+        print("Scraped articles cleaned up successfully.")
+    except Exception as e:
+        print(f"Error cleaning up scraped articles: {e}")
+    finally:
+        await conn.close()
 
-    async with AsyncSessionFactory() as session:
-        async with session.begin():
-            # Wrap the raw SQL string in text()
-            await session.execute(text("DELETE FROM scraped_articles"))
-            # No need for explicit commit() within session.begin() context manager
-            print("Scraped articles cleaned up successfully.")
-        # No need for explicit close() when using 'async with session:'
-    await engine.dispose()
+async def insert_article_to_db(article: ScrapedArticle):
+    """Inserts an article into the database using asyncpg directly."""
+    conn = await get_connection()
+    try:
+        await conn.execute('''
+        INSERT INTO scraped_articles (url, domain, title, content, publication_date, scraped_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ''', article.url, article.domain, article.title, article.content, 
+            article.publication_date, article.scraped_at)
+        print(f"Article '{article.title}' inserted into DB")
+    except Exception as e:
+        print(f"Error inserting article: {e}")
+    finally:
+        await conn.close()
 
-async def insert_articles_to_db(article_objects: List[ScrapedArticle]):
-    """Inserts a list of pre-created ScrapedArticle objects into the database."""
-    if not article_objects:
-        print("No articles provided to insert.")
-        return
-
-    engine = create_async_engine(settings.DATABASE_URL, echo=False)
-    AsyncSessionFactory = sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-    async with AsyncSessionFactory() as session:
-        async with session.begin():
-            print(f"Adding {len(article_objects)} articles to session...")
-            session.add_all(article_objects)
-        print("Article insertion transaction committed.")
-    await engine.dispose()
-
-async def insert_summary_to_db(summary_obj: Summary):
-    """Inserts a pre-created Summary object into the database."""
-    engine = create_async_engine(settings.DATABASE_URL, echo=False)
-    AsyncSessionFactory = sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-    async with AsyncSessionFactory() as session:
-        async with session.begin():
-            session.add(summary_obj)
-            print(f"Adding summary for domain '{summary_obj.domain}' date '{summary_obj.date}' to session.")
-        print("Summary insertion transaction committed.")
-    await engine.dispose()
+async def insert_summary_to_db(summary: Summary):
+    """Inserts a summary into the database using asyncpg directly."""
+    conn = await get_connection()
+    try:
+        await conn.execute('''
+        INSERT INTO summaries (domain, language, date, content)
+        VALUES ($1, $2, $3, $4)
+        ''', summary.domain, summary.language, summary.date, summary.content)
+        print(f"Summary for {summary.domain} inserted into DB")
+    except Exception as e:
+        print(f"Error inserting summary: {e}")
+    finally:
+        await conn.close()
 
 def scrape_telex():
     url = "https://www.telex.hu"
