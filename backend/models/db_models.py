@@ -29,16 +29,18 @@ class TopicAnalysis():
         political_leaning: str,
         sentiment: str,
         framing: Optional[str] = None,
-        key_phrases: Optional[List[str]] = None
+        key_phrases: Optional[List[str]] = None,
+        article_urls: Optional[List[str]] = None
     ):
         self.topic = topic
         self.political_leaning = political_leaning
         self.sentiment = sentiment
         self.framing = framing or ""
         self.key_phrases = key_phrases or []
+        self.article_urls = article_urls or []
 
     def __str__(self):
-        return f"Topic: {self.topic}\nSentiment: {self.sentiment}\nPolitical: {self.political_leaning}\nPhrases: {self.key_phrases}"    
+        return f"Topic: {self.topic}\nSentiment: {self.sentiment}\nPolitical: {self.political_leaning}\nPhrases: {self.key_phrases} \nArticles: {self.article_urls}"    
 
 class DomainAnalysis():
     def __init__(

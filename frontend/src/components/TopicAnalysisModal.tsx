@@ -12,6 +12,8 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
   const handleModalContentClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  console.log('Topic data:', topic.source_coverage[0]);
   
   // Helper to get color for sentiment
   const getSentimentColor = (sentiment: string) => {
@@ -131,6 +133,27 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
                             <li key={`phrase-${idx}-${i}`} className="italic">"{phrase}"</li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+                      {source.article_urls && source.article_urls.length > 0 && (
+                      <div className="mt-3 border-t border-gray-100 pt-2">
+                        <p className="text-sm font-medium mb-1">Eredeti cikkek:</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {source.article_urls.map((url, i) => (
+                            <a 
+                              key={`url-${idx}-${i}`}
+                              href={url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="bg-blue-600 text-white text-xs px-3 py-1 rounded-md flex items-center hover:bg-blue-700 transition-colors shadow-sm"
+                            >
+                              Forrás {i+1}
+                              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

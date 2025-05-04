@@ -110,6 +110,10 @@ async def create_tables():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+
+    await conn.execute('''
+    ALTER TABLE topic_analyses ADD COLUMN IF NOT EXISTS article_urls TEXT[] DEFAULT '{}'
+    ''')
         
     print("Database tables created successfully!")
     await conn.close()

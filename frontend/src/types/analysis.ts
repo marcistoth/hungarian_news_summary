@@ -5,6 +5,7 @@ sentiment: string;
 political_leaning: string;
 key_phrases: string[];
 framing: string;
+article_urls?: string[];
 }
 
 export interface UnifiedTopic {

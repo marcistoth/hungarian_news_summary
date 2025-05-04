@@ -101,12 +101,13 @@ domain_topic_template = ChatPromptTemplate.from_messages([
         and determine the sentiment and political leaning in their reporting.
     """),
     ("user", """
-        Analyze these Hungarian news articles from {domain} and identify 3-5 important topics.
+        Analyze these Hungarian news articles from {domain} and identify around 10 important topics.
         For each topic:
         1. Provide a concise topic name in Hungarian
         2. Analyze the sentiment (positive, negative, or neutral)
         3. Identify the political leaning (left, center-left, center, center-right, right)
         4. Extract 1-2 key phrases that demonstrate the framing
+        5. Include the EXACT full URLs of articles that discuss this topic (copy them exactly as provided in the input)
         
         Return a JSON array with this structure:
         [
@@ -115,14 +116,15 @@ domain_topic_template = ChatPromptTemplate.from_messages([
             "sentiment": "pozitív|negatív|semleges",
             "political_leaning": "bal|közép-bal|közép|közép-jobb|jobb",
             "key_phrases": ["idézet1", "idézet2"],
-            "framing": "Hogyan keretezték a témát"
+            "framing": "Hogyan keretezték a témát",
+            "article_urls": ["https://full.url.com/article1", "https://full.url.com/article2"]
           }}
         ]
         
         Focus on clear topic identification that can be matched across different sources later.
      
-        It is very important that you only select the 3-5 most relevant topics from the articles, 
-        with the highest magnitude.
+        It is very important that you only select approximately the 10 most relevant topics from the articles, 
+        with the highest magnitude, and importance.
         
         --- START OF ARTICLES ---
         {articles_text}
@@ -131,51 +133,57 @@ domain_topic_template = ChatPromptTemplate.from_messages([
 ])
 
 cross_source_template = ChatPromptTemplate.from_messages([
-            ("system", """
-                You are an expert media analyst specializing in Hungarian news content and political bias analysis.
-                Your task is to identify common topics across different news sources and analyze how each source
-                covers the same events with different perspectives, sentiment, and political leanings.
-            """),
-            ("user", """
-                Analyze the following topic data from different Hungarian news sources for {date}.
-                Find common topics that are covered by multiple sources and analyze the differences
-                in sentiment, political leaning, and framing.
-                
-                For each common topic:
-                1. Create a standardized topic name
-                2. List which sources covered it
-                3. Compare the sentiment (positive, negative, neutral) across sources
-                4. Compare the political framing (left, center, right) across sources
-                5. Highlight key differences in framing and perspective
-                
-                Return your analysis in this JSON structure:
-                ```json
+    ("system", """
+        You are an expert media analyst specializing in Hungarian news content and political bias analysis.
+        Your task is to identify common topics across different news sources and analyze how each source
+        covers the same events with different perspectives, sentiment, and political leanings.
+        You must write your entire analysis in Hungarian language.
+    """),
+    ("user", """
+        Elemezd a következő téma adatokat a különböző magyar hírforrásokból {date} napra vonatkozóan.
+        Találd meg azokat a lefgontosabb közös témákat (max. 5-6 témát, hogy kontextusba beleférjen), 
+        amelyeket több forrás is lefed, ideális esetben
+        azokat amikről a legtöbb helyen készült cikk és elemezd a különbségeket
+        a hangvételben, politikai beállítottságban és keretezésben.
+        
+        Minden közös témára vonatkozóan:
+        1. Hozz létre egy egységesített témanevet
+        2. Sorold fel, mely források foglalkoztak vele
+        3. Hasonlítsd össze a hangvételt (pozitív, negatív, semleges) a források között
+        4. Hasonlítsd össze a politikai keretezést (bal, közép, jobb) a források között
+        5. Emeld ki a keretezésben és nézőpontban tapasztalható főbb különbségeket
+        6. Ha esetleg egy cikk többször szerepelne a keretezésben, akkor csak egyszer említsd meg
+        7. Add meg az eredeti cikkek URL-jeit, hogy azok elérhetőek legyenek az elemzésben
+        
+        Az elemzésedet ebben a JSON struktúrában add vissza:
+        ```json
+        {{
+          "date": "{date}",
+          "unified_topics": [
+            {{
+              "name": "Egységesített téma neve",
+              "source_coverage": [
                 {{
-                  "date": "{date}",
-                  "unified_topics": [
-                    {{
-                      "name": "Standardized Topic Name",
-                      "source_coverage": [
-                        {{
-                          "domain": "source_name",
-                          "original_topic_name": "Original topic name used by this source",
-                          "sentiment": "sentiment from this source",
-                          "political_leaning": "leaning from this source",
-                          "key_phrases": ["phrase1", "phrase2"],
-                          "framing": "framing analysis"
-                        }}
-                      ],
-                      "comparative_analysis": "Analysis of how this topic is covered differently across sources"
-                    }}
-                  ]
+                  "domain": "forrás_neve",
+                  "original_topic_name": "Az adott forrás által használt eredeti témanév",
+                  "sentiment": "hangvétel az adott forrásban",
+                  "political_leaning": "politikai beállítottság",
+                  "key_phrases": ["kulcsmondat1", "kulcsmondat2"],
+                  "framing": "keretezés elemzése",
+                  "article_urls": ["https://full.url.com/article1", "https://full.url.com/article2"]
                 }}
-                ```
-                
-                Here are the topic analyses from each source:
-                
-                {source_data}
-            """)
-        ])
+              ],
+              "comparative_analysis": "Elemzés arról, hogy az egyes források hogyan fedik le ugyanazt a témát különböző módon"
+            }}
+          ]
+        }}
+        ```
+        
+        Íme a témaelemzések az egyes forrásokból:
+        
+        {source_data}
+    """)
+])
 
 class LLMService:  
     @staticmethod
@@ -222,7 +230,7 @@ class LLMService:
 
 
     @staticmethod
-    def extract_domain_topics(articles: List[ScrapedArticle]) -> str:
+    def extract_domain_topics(articles: List[ScrapedArticle]) -> DomainAnalysis:
         """
         Extracts topics and sentiment from articles of a single domain.
         
@@ -230,7 +238,7 @@ class LLMService:
             articles: List of ScrapedArticle objects from a single domain
             
         Returns:
-            JSON string containing topics with sentiment and political leaning
+            DomainAnalysis object containing the domain, date, and topics.
         """
         if not articles or len(articles) == 0:
             return DomainAnalysis("unknown", datetime.now().date(), [])
@@ -241,7 +249,8 @@ class LLMService:
         for i, article in enumerate(articles):
             combined_text += f"Article {i+1}:\n"
             combined_text += f"Title: {article.title}\n"
-            combined_text += f"Content: {article.content}\n\n"
+            combined_text += f"Content: {article.content}\n"
+            combined_text += f"URL: {article.url}\n\n"
             
         try:
             # Create the prompt with domain specified
@@ -282,7 +291,8 @@ class LLMService:
                         political_leaning=topic_data.get("political_leaning", "közép"),
                         sentiment=topic_data.get("sentiment", "semleges"),
                         framing=topic_data.get("framing", ""),
-                        key_phrases=topic_data.get("key_phrases", [])
+                        key_phrases=topic_data.get("key_phrases", []),
+                        article_urls=topic_data.get("article_urls", [])
                     )
                     topic_objects.append(topic_obj)
                     
@@ -327,17 +337,42 @@ class LLMService:
             print(f"Cross-source analysis for date: {date}...")
             response = llm.invoke(prompt)
 
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+            with open(f"cross_source_analysis_{timestamp}.json", "w", encoding="utf-8") as f:
+                f.write(response.content)
+
+            print(f"Response content type: {type(response.content)}")
+            print(f"Response content preview: {response.content[:100]}...")
+
             json_match = re.search(r'```json\n(.*?)\n```', response.content, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
+                print(f"Extracted JSON from code block: {json_str[:100]}...")
                 cross_analysis = json.loads(json_str)
-            else:
-                # Try to find JSON without markdown code blocks
-                json_str = response.content
-                cross_analysis = json.loads(json_str)
-                
-            return cross_analysis
+                return cross_analysis
+            
+            content = response.content.strip()
         
+            # If the content starts with { and ends with }, try parsing directly
+            if content.startswith('{') and content.endswith('}'):
+                print("Direct JSON parsing attempt...")
+                cross_analysis = json.loads(content)
+                return cross_analysis
+            
+            # If we reach here, try a more aggressive JSON extraction approach
+            # Find the first { and the last }
+            first_brace = content.find('{')
+            last_brace = content.rfind('}')
+            
+            if first_brace != -1 and last_brace != -1 and first_brace < last_brace:
+                json_candidate = content[first_brace:last_brace+1]
+                print(f"Extracted JSON candidate: {json_candidate[:100]}...")
+                cross_analysis = json.loads(json_candidate)
+                return cross_analysis
+            
+            # If all parsing attempts fail
+            return {"error": f"Could not parse JSON from LLM response", "raw_response": content[:500] + "..."}
+            
         except Exception as e:
             print(f"Error during cross-source analysis: {e}")
             return f"Error generating cross-source analysis: {e}"

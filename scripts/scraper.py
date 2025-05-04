@@ -96,11 +96,11 @@ async def store_domain_analysis(analysis: DomainAnalysis):
         for topic in analysis.topics:
             topic_analysis_id = await conn.fetchval('''
             INSERT INTO topic_analyses 
-            (domain_analysis_id, topic_name, political_leaning, sentiment, framing)
-            VALUES ($1, $2, $3, $4, $5)
+            (domain_analysis_id, topic_name, political_leaning, sentiment, framing, article_urls)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
             ''', domain_analysis_id, topic.topic, topic.political_leaning, 
-                topic.sentiment, topic.framing)
+                topic.sentiment, topic.framing, topic.article_urls)
                 
             # Insert key phrases for this topic
             for phrase in topic.key_phrases:
@@ -142,6 +142,7 @@ async def generate_cross_source_analysis(target_date=None):
                 ta.political_leaning,
                 ta.sentiment,
                 ta.framing,
+                ta.article_urls,
                 array_agg(kp.phrase) as key_phrases
             FROM 
                 domain_analyses da
@@ -152,7 +153,7 @@ async def generate_cross_source_analysis(target_date=None):
             WHERE 
                 da.date = $1
             GROUP BY
-                da.domain, da.date, ta.id, ta.topic_name, ta.political_leaning, ta.sentiment, ta.framing
+                da.domain, da.date, ta.id, ta.topic_name, ta.political_leaning, ta.sentiment, ta.framing, ta.article_urls
         )
         SELECT * FROM topic_data
         ''', target_date)
@@ -171,7 +172,8 @@ async def generate_cross_source_analysis(target_date=None):
                 "sentiment": row['sentiment'],
                 "political_leaning": row['political_leaning'],
                 "key_phrases": row['key_phrases'],
-                "framing": row['framing']
+                "framing": row['framing'],
+                "article_urls": row['article_urls'] or []
             })
         
         # Format the data for the LLM prompt
@@ -184,6 +186,8 @@ async def generate_cross_source_analysis(target_date=None):
                 llm_input += f"    Political Leaning: {topic['political_leaning']}\n"
                 llm_input += f"    Key Phrases: {', '.join(topic['key_phrases'])}\n"
                 llm_input += f"    Framing: {topic['framing']}\n"
+                if topic['article_urls']:
+                    llm_input += f"    Article URLs: {', '.join(topic['article_urls'])}\n"
             llm_input += "\n"
         
         response = llm_service.cross_source_analysis(target_date, llm_input)
@@ -651,7 +655,7 @@ async def scrape_negynegynegy():
         print(f"  Date: {publication_date}")
 
         article_obj = ScrapedArticle(
-            url=url + href,
+            url=href,
             domain="444",
             title=title,
             content=content,
@@ -768,14 +772,13 @@ async def run_full_analysis_pipeline():
     """Run the complete analysis pipeline for all sources."""
     current_date = date.today()
     
-    await scrape_telex()
-    await scrape_origo()
-    await scrape_hvg()
-    await scrape_mandiner()
-    await scrape_negynegynegy()
-    await scrape_24ponthu()
+    # await scrape_telex()
+    # await scrape_origo()
+    # await scrape_hvg()
+    # await scrape_mandiner()
+    # await scrape_negynegynegy()
+    # await scrape_24ponthu()
     
-    # But these functions ARE async and need to be awaited
     try:
         print("Generating cross-source analysis...")
         cross_analysis = await generate_cross_source_analysis(current_date)
