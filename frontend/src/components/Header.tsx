@@ -35,6 +35,9 @@ const Header = () => {
           <NavLink to="/" isActive={location.pathname === '/'}>
             Főoldal
           </NavLink>
+          <NavLink to="/analysis" isActive={location.pathname === '/analysis'}>
+            Elemzés
+          </NavLink>
           <NavLink to="/about" isActive={location.pathname === '/about'}>
             A Projektről
           </NavLink>
@@ -52,6 +55,15 @@ const Header = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 Főoldal
+              </Link>
+            </li>
+            <li>
+              <Link 
+                to="/analysis" 
+                className={`block p-2 rounded ${location.pathname === '/analysis' ? 'bg-primary text-text-on-primary' : 'hover:bg-secondary'}`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Elemzés
               </Link>
             </li>
             <li>

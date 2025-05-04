@@ -8,5 +8,4 @@ export interface Summary {
   export interface SummaryApiResponse {
     summaries: Summary[];
     success: boolean;
-    // Add any other fields the API might return
   }

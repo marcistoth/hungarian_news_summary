@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import SummaryCard from './components/SummaryCard';
 import SummaryModal from './components/SummaryModal';
 import AboutPage from './components/AboutPage';
+import TopicAnalysisPage from './components/TopicAnalysisPage';
 import { Summary, SummaryApiResponse } from './types';
 import { API_URL } from './config';
 
@@ -130,6 +131,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/analysis" element={<TopicAnalysisPage />} />
         </Routes>
         
         <Footer />
