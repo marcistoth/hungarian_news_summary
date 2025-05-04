@@ -60,6 +60,14 @@ export const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     secondaryColor: "#e3eaf7",     // light blue
     textColor: "#ffffff",          // white text
     logo: "/hungarian_news_summary/logos/24hu-logo.jpg"
+  },
+  vadhajtasok: {
+    name: "Vadhajtások", 
+    domain: "vadhajtások",
+    primaryColor: "#2657A7",       // keeping current blue
+    secondaryColor: "#e3eaf7",     // light blue
+    textColor: "#ffffff",          // white text
+    logo: "/hungarian_news_summary/logos/vadhajtasok-logo.jpg"
   }
 };
 

@@ -767,18 +767,102 @@ async def scrape_24ponthu():
 
     print(f"24ponthu summary inserted into db")
 
+async def scrape_vadhajtasok():
+    url = "https://www.vadhajtasok.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    a_elements = soup.find_all('a', href=True)
+
+    hrefs = []
+    for a in a_elements:
+        href = a['href']
+        if href and href.startswith('https://www.vadhajtasok.hu/') and href not in hrefs:
+            hrefs.append(href)
+
+    hrefs.remove('https://www.vadhajtasok.hu/')
+    hrefs.remove('https://www.vadhajtasok.hu/impresszum')
+    hrefs.remove('https://www.vadhajtasok.hu/szerzoi-jogok')
+    hrefs.remove('https://www.vadhajtasok.hu/adatvedelmi-szabalyzat')
+
+    articles = []
+
+    for href in hrefs:
+        response = requests.get(href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('meta', attrs={'property': 'og:title'})
+        if title_element is None:
+            print(f"No title found for {href}")
+            continue
+        title = title_element.text.strip().replace('\n', '')
+
+        parts = href.strip('/').split('/')
+        publication_date = None
+
+        # Extracting the date from the url
+        if len(parts) >= 6 and parts[3].isdigit() and parts[4].isdigit() and parts[5].isdigit():
+            date_str = f"{parts[3]}/{parts[4]}/{parts[5]}" # Reconstruct YYYY/MM/DD
+            try:
+                publication_date = datetime.strptime(date_str, "%Y/%m/%d").date()
+            except ValueError:
+                print(f"Invalid date format in URL: {href}")
+                continue
+        else:
+            print(f"Could not find expected date format in href: {href}")
+            continue
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        content_element = soup.find('div', class_='post-content')
+        for tag in content_element.find_all(True):
+            if tag.name != 'p':
+                tag.decompose()
+        content = content_element.text.strip().replace('\n', '')
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+        print(f"\n {content} \n")
+
+        article_obj = ScrapedArticle(
+            url=href,
+            domain="vadhajtasok",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(tz=gmt_plus_2),
+            publication_date=publication_date,
+        )
+        articles.append(article_obj)
+    
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"vadhajtasok response generated")
+    summary_obj = Summary(
+        domain="vadhajtasok",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
+    print(f"vadhajtasok summary inserted into db")
+
 
 async def run_full_analysis_pipeline():
     """Run the complete analysis pipeline for all sources."""
     current_date = date.today()
     
-    # await scrape_telex()
-    # await scrape_origo()
-    # await scrape_hvg()
-    # await scrape_mandiner()
-    # await scrape_negynegynegy()
-    # await scrape_24ponthu()
-    
+    await scrape_telex()
+    await scrape_origo()
+    await scrape_hvg()
+    await scrape_mandiner()
+    await scrape_negynegynegy()
+    await scrape_24ponthu()
+    await scrape_vadhajtasok()
+
     try:
         print("Generating cross-source analysis...")
         cross_analysis = await generate_cross_source_analysis(current_date)
