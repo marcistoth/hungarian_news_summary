@@ -61,12 +61,13 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ summary, onClose }) => {
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-text-on-primary hover:bg-opacity-20 hover:bg-black bg-opacity-0 transition-colors rounded-full p-1 text-2xl"
+          className="absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full bg-black bg-opacity-20 hover:bg-opacity-40 hover:shadow-lg shadow-md transition-all transform hover:scale-105 cursor-pointer"
           aria-label="Close modal"
         >
-          &times; 
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
-
         {/* Content */}
         <div className="p-6 md:p-8">
           {parsedSections.map((section, index) => (
