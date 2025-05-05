@@ -22,11 +22,18 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
       sentimentCounts[source.sentiment as keyof typeof sentimentCounts] += 1;
     }
   });
+
+  const cardStyle = {
+    borderTop: `4px solid #2657A7`,
+    borderRadius: '8px',
+  };
+
   
   return (
     <div 
       className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 cursor-pointer"
       onClick={onClick}
+      style={cardStyle}
     >
       <div className="p-5">
         <h3 className="text-xl font-bold text-primary mb-3">{topic.name}</h3>

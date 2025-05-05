@@ -332,10 +332,17 @@ class LLMService:
                 "date": date,
                 "source_data": source_data
             })
+
+            #using a better model for cross source analysis
+            big_llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash-preview-04-17",
+                google_api_key=gemini_api_key,
+                temperature=settings.GEMINI_TEMPERATURE
+            )
             
             # Invoke the LLM
             print(f"Cross-source analysis for date: {date}...")
-            response = llm.invoke(prompt)
+            response = big_llm.invoke(prompt)
 
             timestamp = datetime.now().strftime('%Y%m%d_%H%M')
             with open(f"cross_source_analysis_{timestamp}.json", "w", encoding="utf-8") as f:

@@ -818,7 +818,7 @@ async def scrape_vadhajtasok():
         if title_element is None:
             print(f"No title found for {href}")
             continue
-        title = title_element.text.strip().replace('\n', '')
+        title = title_element.get('content', '').strip().replace('\n', '')
 
         parts = href.strip('/').split('/')
         publication_date = None
@@ -896,7 +896,7 @@ async def scrape_magyarjelen():
         if title_element is None:
             print(f"No title found for {href}")
             continue
-        title = title_element.text.strip().replace('\n', '')
+        title = title_element.get('content', '').strip().replace('\n', '')
 
         date_element = soup.find('div', class_='newsDate')
         publication_date = None

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Magyar Hírek Összefoglaló</title>
+    <script type="text/javascript">
+      
+      // This script takes the current URL and redirects to the root with a redirect parameter
+      // that the main app will use to navigate to the correct route
+      
+      var pathSegmentsToKeep = 1; // Keep /hungarian_news_summary/ segment
+      var l = window.location;
+      
+      // Extract the path after the pathSegmentsToKeep
+      var redirectPath = l.pathname.split('/').slice(1 + pathSegmentsToKeep).join('/');
+      
+      // If there's a search query, add it
+      if (l.search) {
+        redirectPath += l.search;
+      }
+      
+      // If there's a hash, add it
+      if (l.hash) {
+        redirectPath += l.hash;
+      }
+      
+      // Redirect to the index.html with the path as a parameter
+      if (redirectPath) {
+        l.replace(
+          l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+          l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?path=' +
+          encodeURIComponent(redirectPath)
+        );
+      }
+    </script>
+  </head>
+  <body>
+    Átirányítás folyamatban...
+  </body>
+</html>

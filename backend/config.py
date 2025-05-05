@@ -29,7 +29,7 @@ class Settings:
 ).split(",")
 
     GEMINI_MODEL = "gemini-2.0-flash"
-    GEMINI_TEMPERATURE = 0.3
+    GEMINI_TEMPERATURE = 1
 
     DATABASE_URL: str = os.getenv("DATABASE_URL", default_database_url)
 
