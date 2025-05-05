@@ -7,6 +7,7 @@ import asyncpg
 router = APIRouter(tags=["summaries"])
 
 from backend.database import get_connection
+from backend.utils.textutils import normalize_domain
 
 
 @router.get("/summaries", response_model=response_models.SummaryResponseModel)
@@ -74,7 +75,7 @@ async def get_summaries(
         for row in rows:
             response_summaries.append(
                 response_models.Summary(
-                    domain=row['domain'],
+                    domain=normalize_domain(row['domain']),
                     language=row['language'],
                     date=row['date'],
                     content=row['content']

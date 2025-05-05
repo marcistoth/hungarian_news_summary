@@ -12,12 +12,12 @@ const Header = () => {
     <header className="w-full py-4 mb-8">
       <div className="flex justify-between items-center">
         {/* Logo and site title */}
-        <div className="flex items-center">
+        <Link to="/" className="flex items-center">
           <img src={logo} alt="Magyar Hírek Összefoglaló" className="h-12 w-auto mr-3" />
           <h1 className="text-2xl md:text-3xl font-bold text-primary">
             Magyar Hírek Összefoglaló
           </h1>
-        </div>
+        </Link>
         
         {/* Mobile menu button */}
         <button 

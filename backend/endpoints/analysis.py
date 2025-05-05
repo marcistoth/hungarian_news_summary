@@ -5,6 +5,7 @@ import asyncpg
 import json
 
 from backend.database import get_connection
+from backend.utils.textutils import normalize_domain 
 
 router = APIRouter(tags=["analysis"])
 
@@ -68,6 +69,14 @@ async def get_cross_source_analysis(
         
         # Parse the JSON data
         analysis_data = json.loads(row['analysis_json'])
+
+        # Normalize domain names in the data
+        if "unified_topics" in analysis_data:
+            for topic in analysis_data["unified_topics"]:
+                if "source_coverage" in topic:
+                    for source in topic["source_coverage"]:
+                        if "domain" in source:
+                            source["domain"] = normalize_domain(source["domain"])
         
         return {
             "success": True,
