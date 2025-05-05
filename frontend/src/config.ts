@@ -67,7 +67,7 @@ export const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     primaryColor: "#2657A7",       // keeping current blue
     secondaryColor: "#e3eaf7",     // light blue
     textColor: "#ffffff",          // white text
-    logo: "/hungarian_news_summary/logos/vadhajtasok-logo.jpg"
+    logo: "/hungarian_news_summary/logos/vadhajtasok-logo.png"
   }
 };
 
