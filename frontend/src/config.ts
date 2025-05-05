@@ -68,6 +68,22 @@ export const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     secondaryColor: "#e3eaf7",     // light blue
     textColor: "#ffffff",          // white text
     logo: "/hungarian_news_summary/logos/vadhajtasok-logo.png"
+  },
+  magyarjelen: {
+    name: "Magyar Jelen", 
+    domain: "magyarjelen",
+    primaryColor: "#2657A7",       // keeping current blue
+    secondaryColor: "#e3eaf7",     // light blue
+    textColor: "#ffffff",          // white text
+    logo: "/hungarian_news_summary/logos/magyarjelen-logo.jpg"
+  },
+  nyugatifeny: {
+    name: "Nyugati fény", 
+    domain: "nyugatifeny",
+    primaryColor: "#2657A7",       // keeping current blue
+    secondaryColor: "#e3eaf7",     // light blue
+    textColor: "#ffffff",          // white text
+    logo: "/hungarian_news_summary/logos/nyugatifeny-logo.png"
   }
 };
 

@@ -242,6 +242,31 @@ async def store_cross_source_analysis(analysis_data):
     finally:
         await conn.close()
 
+def parse_hungarian_date(date_text):
+    """
+    Parse Hungarian format date like: 2025. máj. 5. 13:13
+    Returns a date object
+    """
+    # Hungarian month abbreviations mapping
+    month_map = {
+        "jan.": 1, "feb.": 2, "márc.": 3, "ápr.": 4, 
+        "máj.": 5, "jún.": 6, "júl.": 7, "aug.": 8, 
+        "szept.": 9, "okt.": 10, "nov.": 11, "dec.": 12
+    }
+    
+    # Clean and split the date text
+    parts = date_text.strip().split()
+    if len(parts) >= 4:
+        try:
+            year = int(parts[0].rstrip('.'))
+            month = month_map.get(parts[1], 1)  # Default to 1 if not found
+            day = int(parts[2].rstrip('.'))
+            return date(year, month, day)
+        except (ValueError, IndexError) as e:
+            print(f"Error parsing date '{date_text}': {e}")
+    
+    return None
+
 async def scrape_telex():
     url = "https://www.telex.hu"
     response = requests.get(url)
@@ -822,7 +847,6 @@ async def scrape_vadhajtasok():
 
         print(f"  Title: {title}")
         print(f"  Date: {publication_date}")
-        print(f"\n {content} \n")
 
         article_obj = ScrapedArticle(
             url=href,
@@ -850,6 +874,149 @@ async def scrape_vadhajtasok():
 
     print(f"vadhajtasok summary inserted into db")
 
+async def scrape_magyarjelen():
+    url = "https://www.magyarjelen.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    a_elements = soup.find_all('a', href=True)
+
+    hrefs = []
+    for a in a_elements:
+        href = a['href']
+        if (href and not href.startswith('https') and href not in hrefs and href.count('/') > 1 and not href.startswith('/in-english')):
+            hrefs.append(href)
+            print(href)    
+
+    articles = []
+
+    for href in hrefs:
+        response = requests.get(url + href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('meta', attrs={'property': 'og:title'})
+        if title_element is None:
+            print(f"No title found for {href}")
+            continue
+        title = title_element.text.strip().replace('\n', '')
+
+        date_element = soup.find('div', class_='newsDate')
+        publication_date = None
+
+        if date_element:
+            date_text = date_element.text.strip()
+            publication_date = parse_hungarian_date(date_text)
+        else:
+            print(f"Could not find date information for {href}")
+            continue
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        content_element = soup.find('div', class_='newsPageDescription')
+        content = content_element.text.strip().replace('\n', '')
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+        article_obj = ScrapedArticle(
+            url=href,
+            domain="magyarjelen",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(tz=gmt_plus_2),
+            publication_date=publication_date,
+        )
+        articles.append(article_obj)
+    
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"magyarjelen response generated")
+    summary_obj = Summary(
+        domain="magyarjelen",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
+    print(f"magyarjelen summary inserted into db")
+    
+async def scrape_nyugatifeny():
+    url = "https://www.nyugatifeny.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    a_elements = soup.find_all('a', href=True)
+
+    hrefs = []
+    for a in a_elements:
+        href = a['href']
+        if href and href.startswith("https") and href not in hrefs:
+            hrefs.append(href)
+            print(href)
+
+    articles = []
+
+    for href in hrefs:
+        response = requests.get(href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('title')
+        if title_element is None:
+            print(f"No title found for {href}")
+            continue
+        title = title_element.text.strip().replace('\n', '')
+
+        published_time_tag = soup.find('meta', attrs={'property': 'article:published_time'})
+        publication_date = None
+        if published_time_tag and published_time_tag.get('content'):
+            date_str = published_time_tag['content']
+            try:
+                # Parse the ISO 8601 format string
+                publication_datetime = datetime.fromisoformat(date_str)
+                # Extract just the date part
+                publication_date = publication_datetime.date()
+            except ValueError:
+                print(f"Warning: Could not parse date string '{date_str}' from meta tag in {href}")
+        else:
+            print(f"Warning: Could not find publication time meta tag in {href}")
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        content_element = soup.find('div', class_='entry-content')
+        content = content_element.text.strip().replace('\n', '')
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+        article_obj = ScrapedArticle(
+            url=href,
+            domain="nyugatifeny",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(tz=gmt_plus_2),
+            publication_date=publication_date,
+        )
+        articles.append(article_obj)
+    
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"nyugatifeny response generated")
+    summary_obj = Summary(
+        domain="nyugatifeny",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
+    print(f"nyugatifeny summary inserted into db")
 
 async def run_full_analysis_pipeline():
     """Run the complete analysis pipeline for all sources."""
@@ -862,6 +1029,7 @@ async def run_full_analysis_pipeline():
     await scrape_negynegynegy()
     await scrape_24ponthu()
     await scrape_vadhajtasok()
+    await scrape_magyarjelen()
 
     try:
         print("Generating cross-source analysis...")
@@ -883,5 +1051,6 @@ async def run_full_analysis_pipeline():
 
 if __name__ == "__main__":
     print("Running scraper script...")
-    asyncio.run(run_full_analysis_pipeline())
+    # asyncio.run(run_full_analysis_pipeline())
+    asyncio.run(scrape_nyugatifeny())
     print("Script finished.")
