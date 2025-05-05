@@ -1030,6 +1030,7 @@ async def run_full_analysis_pipeline():
     await scrape_24ponthu()
     await scrape_vadhajtasok()
     await scrape_magyarjelen()
+    await scrape_nyugatifeny()
 
     try:
         print("Generating cross-source analysis...")
@@ -1051,6 +1052,5 @@ async def run_full_analysis_pipeline():
 
 if __name__ == "__main__":
     print("Running scraper script...")
-    # asyncio.run(run_full_analysis_pipeline())
-    asyncio.run(scrape_nyugatifeny())
+    asyncio.run(run_full_analysis_pipeline())
     print("Script finished.")
