@@ -34,7 +34,6 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
         <div className="flex items-center gap-2 flex-wrap mb-4">
           {topic.source_coverage.map((source, index) => {
             const sourceConfig = getNewsSourceConfig(source.domain);
-            console.log(sourceConfig);
             return (
               <div 
                 key={`source-${index}`}
