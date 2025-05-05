@@ -84,6 +84,14 @@ export const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     secondaryColor: "#e3eaf7",     // light blue
     textColor: "#ffffff",          // white text
     logo: "/hungarian_news_summary/logos/nyugatifeny-logo.png"
+  },
+  index: {
+    name: "Index", 
+    domain: "index",
+    primaryColor: "#2657A7",       // keeping current blue
+    secondaryColor: "#e3eaf7",     // light blue
+    textColor: "#ffffff",          // white text
+    logo: "/hungarian_news_summary/logos/index-logo.jpg"
   }
 };
 

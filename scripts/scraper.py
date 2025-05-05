@@ -244,7 +244,7 @@ async def store_cross_source_analysis(analysis_data):
 
 def parse_hungarian_date(date_text):
     """
-    Parse Hungarian format date like: 2025. máj. 5. 13:13
+    Parse Hungarian format date
     Returns a date object
     """
     # Hungarian month abbreviations mapping
@@ -1018,6 +1018,152 @@ async def scrape_nyugatifeny():
 
     print(f"nyugatifeny summary inserted into db")
 
+def save_html_for_debugging(url, html_content):
+    """Save HTML content to a file for debugging purposes."""
+    import os
+    from datetime import datetime
+    
+    # Create a debug directory if it doesn't exist
+    debug_dir = os.path.join(os.path.dirname(__file__), "debug_html")
+    os.makedirs(debug_dir, exist_ok=True)
+    
+    # Create a filename based on timestamp and sanitized URL
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_url = url.replace("https://", "").replace("http://", "").replace("/", "_").replace("?", "_").replace("&", "_")
+    if len(safe_url) > 100:  # Truncate if too long
+        safe_url = safe_url[:100]
+    
+    filename = f"{timestamp}_{safe_url}.html"
+    filepath = os.path.join(debug_dir, filename)
+    
+    # Save the content
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(html_content)
+    
+    print(f"HTML content saved to {filepath}")
+    return filepath
+
+async def scrape_index():
+    url = "https://index.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    a_elements = soup.find_all('a', href=True)
+
+    hrefs = []
+    date_pattern = r'https://index\.hu/.*?/(\d{4})/(\d{1,2})/(\d{1,2})/'
+    for element in a_elements:
+        href = element.get('href')
+        
+        # Check for redirect links with URL parameter
+        if href and "dex.hu/x.php" in href and "url=" in href:
+            # Extract the encoded URL using regex
+            redirect_match = re.search(r'url=([^&]+)', href)
+            if redirect_match:
+                # Simple URL decoding function
+                encoded_url = redirect_match.group(1)
+                # Replace URL encoding for common characters
+                decoded_url = encoded_url.replace('%3A', ':').replace('%2F', '/').replace('%3F', '?')
+                
+                if re.search(date_pattern, decoded_url) and decoded_url not in hrefs:
+                    hrefs.append(decoded_url)
+    
+    articles = []
+
+    for href in hrefs:
+        response = requests.get(href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('meta', attrs={'property': 'og:title'})
+        if title_element is None:
+            title_element = soup.find('title')
+            if title_element is None:
+                print(f"title not found for {href}")
+                continue
+        
+            full_title = title_element.text.strip()
+            # Split by " - " and take everything after the second dash (the actual title)
+            title_parts = full_title.split(" - ")
+            if len(title_parts) >= 3:
+                # Join everything after "Index - Category -" as the actual title
+                title = " - ".join(title_parts[2:])
+            else:
+                title = full_title
+        else:
+            # For meta tags with og:title
+            title = title_element.get('content', '').strip().replace('\n', '')
+
+        published_time_tag = soup.find('meta', attrs={'property': 'article:published_time'})
+        publication_date = None
+        if published_time_tag and published_time_tag.get('content'):
+            date_str = published_time_tag['content']
+            try:
+                # Parse the ISO 8601 format string
+                publication_datetime = datetime.fromisoformat(date_str)
+                # Extract just the date part
+                publication_date = publication_datetime.date()
+            except ValueError:
+                print(f"Warning: Could not parse date string '{date_str}' from meta tag in {href}")
+        else:
+            print(f"Warning: Could not find publication time meta tag in {href}")
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        content_parts = []
+            
+        # Try to extract lead
+        lead_element = soup.find('div', class_='lead')
+        if lead_element:
+            content_parts.append(lead_element.text.strip().replace('\n', ''))
+        else:
+            print(f"Warning: No lead element found for {href}")
+        
+        # Try to extract article body
+        torzs_element = soup.find('div', class_='cikk-torzs')
+        if torzs_element:
+            content_parts.append(torzs_element.text.strip().replace('\n', ''))
+        else:
+            print(f"Warning: No article body element found for {href}")
+            
+        # Check if we have any content
+        if not content_parts:
+            print(f"No content could be extracted, skipping {href}")
+            continue
+            
+        content = " ".join(content_parts)
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+        article_obj = ScrapedArticle(
+            url=url + href,
+            domain="index",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(timezone.utc),
+            publication_date=date.today()
+        )
+    
+        articles.append(article_obj)
+
+        await asyncio.sleep(3)  # To avoid overwhelming the server, cause index is a bitch
+
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"index response generated")
+    summary_obj = Summary(
+        domain="index",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
+    print(f"index summary inserted into db")
+
 async def run_full_analysis_pipeline():
     """Run the complete analysis pipeline for all sources."""
     current_date = date.today()
@@ -1031,6 +1177,7 @@ async def run_full_analysis_pipeline():
     await scrape_vadhajtasok()
     await scrape_magyarjelen()
     await scrape_nyugatifeny()
+    await scrape_index()
 
     try:
         print("Generating cross-source analysis...")
