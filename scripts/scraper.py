@@ -190,7 +190,7 @@ async def generate_cross_source_analysis(target_date=None):
                     llm_input += f"    Article URLs: {', '.join(topic['article_urls'])}\n"
             llm_input += "\n"
         
-        response = llm_service.cross_source_analysis(target_date, llm_input)
+        response = llm_service.cross_source_analysis(target_date.isoformat(), llm_input)
             
         return response
         
@@ -204,21 +204,32 @@ async def generate_cross_source_analysis(target_date=None):
 
 async def store_cross_source_analysis(analysis_data):
     """Store the cross-source analysis in the database."""
-    if "error" in analysis_data or not analysis_data.get("unified_topics"):
-        print(f"No valid analysis data to store: {analysis_data}")
-        return
-        
+    
+    # Convert Pydantic model to dict
+    if hasattr(analysis_data, "model_dump"):
+        # For Pydantic v2
+        analysis_dict = analysis_data.model_dump()
+    elif hasattr(analysis_data, "dict"):
+        # For Pydantic v1
+        analysis_dict = analysis_data.dict()
+    else:
+        # Already a dict or similar
+        analysis_dict = analysis_data
+    
+    # Check for valid data
+    if not analysis_dict or "unified_topics" not in analysis_dict or not analysis_dict.get("unified_topics"):
+        print(f"Warning: No valid analysis topics to store")
+    
     conn = await get_connection()
     try:
-        # Convert to JSON string for storage
         import json
         from datetime import datetime
         
-        analysis_json = json.dumps(analysis_data, ensure_ascii=False)
+        analysis_json = json.dumps(analysis_dict, ensure_ascii=False)
         
-        # Convert string date to date object
-        date_str = analysis_data.get("date")
-        if isinstance(date_str, str):
+        # Get date from the analysis
+        if "date" in analysis_dict and analysis_dict["date"]:
+            date_str = analysis_dict["date"]
             try:
                 # Parse the date string to a date object
                 date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -229,8 +240,8 @@ async def store_cross_source_analysis(analysis_data):
         else:
             # Use today's date if no date is provided
             date_obj = date.today()
+            print("Warning: No date found in analysis, using today's date")
             
-        # Store in a new cross_source_analyses table
         await conn.execute('''
         INSERT INTO cross_source_analyses (date, analysis_json)
         VALUES ($1, $2)
@@ -239,6 +250,8 @@ async def store_cross_source_analysis(analysis_data):
         print(f"Cross-source analysis stored successfully for {date_obj}")
     except Exception as e:
         print(f"Error storing cross-source analysis: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         await conn.close()
 
@@ -1182,12 +1195,6 @@ async def run_full_analysis_pipeline():
     try:
         print("Generating cross-source analysis...")
         cross_analysis = await generate_cross_source_analysis(current_date)
-
-        #save the analysis in a separate file for debugging
-
-        with open("cross_source_analysis.json", "w", encoding="utf-8") as f:
-            import json
-            json.dump(cross_analysis, f, ensure_ascii=False, indent=4)
         
         # Store the cross-source analysis in a new table
         print("Storing cross-source analysis in database...")

@@ -1,57 +1,51 @@
-from datetime import datetime, date
+from datetime import datetime, date as dateee
 from typing import List, Optional
+from pydantic import BaseModel, Field, validator
 
-class ScrapedArticle():
-    def __init__(self, url, domain, title, content, scraped_at, publication_date):
-        self.url = url
-        self.domain = domain
-        self.title = title
-        self.content = content
-        self.scraped_at = scraped_at
-        self.publication_date = publication_date
+class ScrapedArticle(BaseModel):
+    url: str = Field(..., description="URL of the article")
+    domain: str = Field(..., description="Domain the article belongs to")
+    title: str = Field(..., description="Title of the article")
+    content: str = Field(..., description="Full article content")
+    scraped_at: datetime = Field(..., description="When the article was scraped")
+    publication_date: dateee = Field(..., description="When the article was published")
+    
+    class Config:
+        arbitrary_types_allowed = True
 
-class Summary():
-    def __init__(self, domain, language, date, content):
-        self.domain = domain
-        self.language = language
-        self.date = date
-        self.content = content
+class Summary(BaseModel):
+    domain: str = Field(..., description="Domain the summary is for")
+    language: str = Field(..., description="Language of the summary")
+    date: datetime = Field(..., description="Date and time the summary was created")
+    content: str = Field(..., description="Summary content")
+    
+    class Config:
+        arbitrary_types_allowed = True
 
-# New classes for domain analysis
-class KeyPhrase():
-    def __init__(self, phrase: str):
-        self.phrase = phrase
+class KeyPhrase(BaseModel):
+    phrase: str = Field(..., description="A key phrase extracted from articles")
 
-class TopicAnalysis():
-    def __init__(
-        self, 
-        topic: str,
-        political_leaning: str,
-        sentiment: str,
-        framing: Optional[str] = None,
-        key_phrases: Optional[List[str]] = None,
-        article_urls: Optional[List[str]] = None
-    ):
-        self.topic = topic
-        self.political_leaning = political_leaning
-        self.sentiment = sentiment
-        self.framing = framing or ""
-        self.key_phrases = key_phrases or []
-        self.article_urls = article_urls or []
+class TopicAnalysis(BaseModel):
+    topic: str = Field(..., description="Topic name")
+    political_leaning: str = Field(..., description="Political leaning of the coverage")
+    sentiment: str = Field(..., description="Sentiment analysis of the coverage")
+    framing: str = Field("", description="Analysis of how the topic was framed")
+    key_phrases: List[str] = Field(default_factory=list, description="Key phrases from the coverage")
+    article_urls: List[str] = Field(default_factory=list, description="URLs of articles covering this topic")
+    
+    class Config:
+        arbitrary_types_allowed = True
 
     def __str__(self):
-        return f"Topic: {self.topic}\nSentiment: {self.sentiment}\nPolitical: {self.political_leaning}\nPhrases: {self.key_phrases} \nArticles: {self.article_urls}"    
+        return f"Topic: {self.topic}\nSentiment: {self.sentiment}\nPolitical: {self.political_leaning}\nPhrases: {self.key_phrases} \nArticles: {self.article_urls}"
 
-class DomainAnalysis():
-    def __init__(
-        self,
-        domain: str,
-        date: date,
-        topics: List[TopicAnalysis]
-    ):
-        self.domain = domain
-        self.date = date
-        self.topics = topics
+class DomainAnalysis(BaseModel):
+    domain: str = Field(..., description="Domain name")
+    date: dateee = Field(..., description="Analysis date")
+    topics: List[TopicAnalysis] = Field(..., description="Topics analyzed for this domain")
+    
+    class Config:
+        arbitrary_types_allowed = True
 
     def __str__(self):
         topics_str = "\n".join([str(t) for t in self.topics])

@@ -7,6 +7,7 @@ from typing import List
 from datetime import datetime
 import json
 import re
+from backend.models.ai_models import CrossSourceAnalysis
 
 #load .env
 from dotenv import load_dotenv
@@ -141,8 +142,7 @@ cross_source_template = ChatPromptTemplate.from_messages([
     """),
     ("user", """
         Elemezd a következő téma adatokat a különböző magyar hírforrásokból {date} napra vonatkozóan.
-        Találd meg azokat a lefgontosabb közös témákat (max. 5-6 témát, hogy kontextusba beleférjen), 
-        amelyeket több forrás is lefed, ideális esetben
+        Találd meg azt a max. 5-6 legfontosabb témát, amelyeket több forrás is lefed, ideális esetben
         azokat amikről a legtöbb helyen készült cikk és elemezd a különbségeket
         a hangvételben, politikai beállítottságban és keretezésben.
         
@@ -155,8 +155,8 @@ cross_source_template = ChatPromptTemplate.from_messages([
         6. Ha esetleg egy cikk többször szerepelne a keretezésben, akkor csak egyszer említsd meg
         7. Add meg az eredeti cikkek URL-jeit, hogy azok elérhetőek legyenek az elemzésben
         
-        Az elemzésedet ebben a JSON struktúrában add vissza:
-        ```json
+        Az elemzésedet a megadott struktúrában add vissza:
+     
         {{
           "date": "{date}",
           "unified_topics": [
@@ -177,7 +177,11 @@ cross_source_template = ChatPromptTemplate.from_messages([
             }}
           ]
         }}
-        ```
+     
+        Nagyon fontos hogy csak a legfontosabb kivonatokat (laponként max 2-3-at, többet ne) említs meg egy témához,
+        és ebben a helyzetben is összegezd ezeket egyetlen "source coverage" részben, hogy ne legyenek redundánsak.
+        Az elemzésed legyen világos és tömör, és kerüld a költői vagy "felpörgető" nyelvezetet.
+        
         
         Íme a témaelemzések az egyes forrásokból:
         
@@ -312,7 +316,7 @@ class LLMService:
             return DomainAnalysis(domain, datetime.now().date(), [])
         
     @staticmethod
-    def cross_source_analysis(date: str, source_data: str) -> str:
+    def cross_source_analysis(date: str, source_data: str) -> CrossSourceAnalysis:
         """
         Analyzes topics across different sources for a given date.
         
@@ -321,67 +325,45 @@ class LLMService:
             source_data: List of DomainAnalysis objects from different sources.
             
         Returns:
-            JSON string containing cross-source analysis results.
+            CrossSourceAnalysis object containing the cross-source analysis results.
         """
-        if not source_data or len(source_data) == 0:
-            return "No source data provided for cross-source analysis."
-        
         try:
-            # Create the prompt with date and source data
+
             prompt = cross_source_template.invoke({
                 "date": date,
                 "source_data": source_data
             })
 
-            #using a better model for cross source analysis
+            # Initialize the LLM
             big_llm = ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash-preview-04-17",
                 google_api_key=gemini_api_key,
                 temperature=settings.GEMINI_TEMPERATURE
             )
             
-            # Invoke the LLM
+            # Set up structured output
+            structured_llm = big_llm.with_structured_output(CrossSourceAnalysis)
+            
+            # Get structured response
             print(f"Cross-source analysis for date: {date}...")
-            response = big_llm.invoke(prompt)
-
+            result = structured_llm.invoke(prompt)
+            
+            # Save for debugging
             timestamp = datetime.now().strftime('%Y%m%d_%H%M')
-            with open(f"cross_source_analysis_{timestamp}.json", "w", encoding="utf-8") as f:
-                f.write(response.content)
-
-            print(f"Response content type: {type(response.content)}")
-            print(f"Response content preview: {response.content[:100]}...")
-
-            json_match = re.search(r'```json\n(.*?)\n```', response.content, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-                print(f"Extracted JSON from code block: {json_str[:100]}...")
-                cross_analysis = json.loads(json_str)
-                return cross_analysis
+            with open(f"cross_source_analysis_{timestamp}.txt", "w", encoding="utf-8") as f:
+                f.write(str(result))
             
-            content = response.content.strip()
-        
-            # If the content starts with { and ends with }, try parsing directly
-            if content.startswith('{') and content.endswith('}'):
-                print("Direct JSON parsing attempt...")
-                cross_analysis = json.loads(content)
-                return cross_analysis
-            
-            # If we reach here, try a more aggressive JSON extraction approach
-            # Find the first { and the last }
-            first_brace = content.find('{')
-            last_brace = content.rfind('}')
-            
-            if first_brace != -1 and last_brace != -1 and first_brace < last_brace:
-                json_candidate = content[first_brace:last_brace+1]
-                print(f"Extracted JSON candidate: {json_candidate[:100]}...")
-                cross_analysis = json.loads(json_candidate)
-                return cross_analysis
-            
-            # If all parsing attempts fail
-            return {"error": f"Could not parse JSON from LLM response", "raw_response": content[:500] + "..."}
+            return result
             
         except Exception as e:
             print(f"Error during cross-source analysis: {e}")
-            return f"Error generating cross-source analysis: {e}"
+            import traceback
+            traceback.print_exc()
+            
+            # Return empty but valid CrossSourceAnalysis object
+            return CrossSourceAnalysis(
+                date=date,
+                unified_topics=[]
+            )
 
 llm_service = LLMService()
