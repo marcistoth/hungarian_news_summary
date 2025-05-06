@@ -94,13 +94,15 @@ async def store_domain_analysis(analysis: DomainAnalysis):
         
         # Insert each topic
         for topic in analysis.topics:
+            political_leaning_str = topic.political_leaning.value if hasattr(topic.political_leaning, "value") else str(topic.political_leaning)
+            sentiment_str = topic.sentiment.value if hasattr(topic.sentiment, "value") else str(topic.sentiment)
             topic_analysis_id = await conn.fetchval('''
             INSERT INTO topic_analyses 
             (domain_analysis_id, topic_name, political_leaning, sentiment, framing, article_urls)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
-            ''', domain_analysis_id, topic.topic, topic.political_leaning, 
-                topic.sentiment, topic.framing, topic.article_urls)
+            ''', domain_analysis_id, topic.topic, political_leaning_str, 
+                sentiment_str, topic.framing, topic.article_urls)
                 
             # Insert key phrases for this topic
             for phrase in topic.key_phrases:

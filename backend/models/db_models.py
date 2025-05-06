@@ -1,6 +1,7 @@
 from datetime import datetime, date as dateee
 from typing import List, Optional
 from pydantic import BaseModel, Field, validator
+from .enums import PoliticalLeaning, Sentiment
 
 class ScrapedArticle(BaseModel):
     url: str = Field(..., description="URL of the article")
@@ -27,8 +28,8 @@ class KeyPhrase(BaseModel):
 
 class TopicAnalysis(BaseModel):
     topic: str = Field(..., description="Topic name")
-    political_leaning: str = Field(..., description="Political leaning of the coverage")
-    sentiment: str = Field(..., description="Sentiment analysis of the coverage")
+    political_leaning: PoliticalLeaning = Field(..., description="Political leaning of the coverage")
+    sentiment: Sentiment = Field(..., description="Sentiment analysis of the coverage")
     framing: str = Field("", description="Analysis of how the topic was framed")
     key_phrases: List[str] = Field(default_factory=list, description="Key phrases from the coverage")
     article_urls: List[str] = Field(default_factory=list, description="URLs of articles covering this topic")

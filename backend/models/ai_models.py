@@ -1,14 +1,13 @@
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional
-from datetime import date
-import re
+from .enums import PoliticalLeaning, Sentiment
 
 class TopicAnalysisLLM(BaseModel):
     """Topic analysis structure for LLM responses"""
     
     topic: str = Field(..., description="Topic name")
-    sentiment: str = Field(..., description="Sentiment analysis of the coverage (pozitív, negatív, or semleges)")
-    political_leaning: str = Field(..., description="Political leaning (bal, közép-bal, közép, közép-jobb, or jobb)")
+    sentiment: Sentiment = Field(..., description="Sentiment analysis of the coverage")
+    political_leaning: PoliticalLeaning = Field(..., description="Political leaning")
     framing: str = Field(..., description="Analysis of how the topic was framed")
     key_phrases: List[str] = Field(..., description="Key phrases from the coverage")
     article_urls: List[str] = Field(default_factory=list, description="URLs of articles covering this topic")

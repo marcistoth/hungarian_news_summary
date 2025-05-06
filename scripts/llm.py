@@ -9,6 +9,7 @@ import json
 import re
 from backend.models.ai_models import CrossSourceAnalysis
 from backend.models.ai_models import DomainAnalysisLLM, TopicAnalysisLLM
+from backend.models.enums import PoliticalLeaning, Sentiment
 
 #load .env
 from dotenv import load_dotenv
@@ -110,8 +111,8 @@ domain_topic_template = ChatPromptTemplate.from_messages([
         1. The domain name (exactly as provided to you)
         2. A list of topics with the following information for each:
            - A concise topic name in Hungarian
-           - The sentiment (pozitív, negatív, or semleges)
-           - The political leaning (bal, közép-bal, közép, közép-jobb, jobb)
+           - The sentiment (must be exactly one of: "pozitív", "negatív", or "semleges")
+           - The political leaning (must be exactly one of: "bal", "közép-bal", "közép", "közép-jobb", "jobb")
            - 1-2 key phrases that demonstrate the framing
            - A brief analysis of how the topic was framed
            - The EXACT full URLs of articles that discuss this topic (copy them exactly as provided)
@@ -140,8 +141,8 @@ cross_source_template = ChatPromptTemplate.from_messages([
         Minden közös témára vonatkozóan:
         1. Hozz létre egy egységesített témanevet
         2. Sorold fel, mely források foglalkoztak vele
-        3. Hasonlítsd össze a hangvételt (pozitív, negatív, semleges) a források között
-        4. Hasonlítsd össze a politikai keretezést (bal, közép, jobb) a források között
+        3. Hasonlítsd össze a hangvételt a források között (érték szigorúan a következők közül: "pozitív", "negatív", "semleges")
+        4. Hasonlítsd össze a politikai keretezést a források között (érték szigorúan a következők közül: "bal", "közép-bal", "közép", "közép-jobb", "jobb")
         5. Emeld ki a keretezésben és nézőpontban tapasztalható főbb különbségeket
         6. Ha esetleg egy cikk többször szerepelne a keretezésben, akkor csak egyszer említsd meg
         7. Add meg az eredeti cikkek URL-jeit, hogy azok elérhetőek legyenek az elemzésben
