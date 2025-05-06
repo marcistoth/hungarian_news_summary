@@ -39,32 +39,41 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
         <h3 className="text-xl font-bold text-primary mb-3">{topic.name}</h3>
         
         <div className="flex items-center gap-2 flex-wrap mb-4">
-          {topic.source_coverage.map((source, index) => {
-            const sourceConfig = getNewsSourceConfig(source.domain);
-            return (
-              <div 
-                key={`source-${index}`}
-                className="flex items-center h-8 px-2 rounded-full"
-                style={{ 
-                  backgroundColor: sourceConfig.secondaryColor,
-                  color: sourceConfig.primaryColor
-                }}
-              >
-                <img 
-                  src={sourceConfig.logo} 
-                  alt={sourceConfig.name}
-                  className="h-5 w-5 mr-1 rounded-full object-cover" 
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = '/hungarian_news_summary/logos/default-logo.png';
+          {(() => {
+            const renderedDomains = new Set<string>();
+            
+            return topic.source_coverage.map((source, index) => {
+              // Skip if this domain has already been rendered
+              if (renderedDomains.has(source.domain)) {
+                return null;
+              }
+              renderedDomains.add(source.domain);
+              
+              const sourceConfig = getNewsSourceConfig(source.domain);
+              return (
+                <div 
+                  key={`source-${index}`}
+                  className="flex items-center h-8 px-2 rounded-full"
+                  style={{ 
+                    backgroundColor: sourceConfig.secondaryColor,
+                    color: sourceConfig.primaryColor
                   }}
-                />
-                <span className="text-xs font-medium">{sourceConfig.name}</span>
-              </div>
-            );
-          })}
+                >
+                  <img 
+                    src={sourceConfig.logo} 
+                    alt={sourceConfig.name}
+                    className="h-5 w-5 mr-1 rounded-full object-cover" 
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/hungarian_news_summary/logos/default-logo.png';
+                    }}
+                  />
+                  <span className="text-xs font-medium">{sourceConfig.name}</span>
+                </div>
+              );
+            }).filter(Boolean);
+          })()}
         </div>
-        
         <div className="mb-4">
           <h4 className="text-sm font-medium text-text-light mb-2">Hangvétel megoszlása:</h4>
           <div className="flex space-x-2">
