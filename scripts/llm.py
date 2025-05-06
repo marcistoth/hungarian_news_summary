@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import re
 from backend.models.ai_models import CrossSourceAnalysis
+from backend.models.ai_models import DomainAnalysisLLM, TopicAnalysisLLM
 
 #load .env
 from dotenv import load_dotenv
@@ -100,32 +101,22 @@ domain_topic_template = ChatPromptTemplate.from_messages([
         You are an expert media analyst specializing in Hungarian news content.
         Your task is to identify key topics from articles from a single news source
         and determine the sentiment and political leaning in their reporting.
+        You will return a structured analysis that can be processed automatically.
     """),
     ("user", """
         Analyze these Hungarian news articles from {domain} and identify around 10 important topics.
-        For each topic:
-        1. Provide a concise topic name in Hungarian
-        2. Analyze the sentiment (positive, negative, or neutral)
-        3. Identify the political leaning (left, center-left, center, center-right, right)
-        4. Extract 1-2 key phrases that demonstrate the framing
-        5. Include the EXACT full URLs of articles that discuss this topic (copy them exactly as provided in the input)
         
-        Return a JSON array with this structure:
-        [
-          {{
-            "topic": "Topic name",
-            "sentiment": "pozitív|negatív|semleges",
-            "political_leaning": "bal|közép-bal|közép|közép-jobb|jobb",
-            "key_phrases": ["idézet1", "idézet2"],
-            "framing": "Hogyan keretezték a témát",
-            "article_urls": ["https://full.url.com/article1", "https://full.url.com/article2"]
-          }}
-        ]
+        For your output, provide:
+        1. The domain name (exactly as provided to you)
+        2. A list of topics with the following information for each:
+           - A concise topic name in Hungarian
+           - The sentiment (pozitív, negatív, or semleges)
+           - The political leaning (bal, közép-bal, közép, közép-jobb, jobb)
+           - 1-2 key phrases that demonstrate the framing
+           - A brief analysis of how the topic was framed
+           - The EXACT full URLs of articles that discuss this topic (copy them exactly as provided)
         
-        Focus on clear topic identification that can be matched across different sources later.
-     
-        It is very important that you only select approximately the 10 most relevant topics from the articles, 
-        with the highest magnitude, and importance.
+        It is very important that you only select approximately 10 most relevant topics with the highest importance.
         
         --- START OF ARTICLES ---
         {articles_text}
@@ -245,7 +236,11 @@ class LLMService:
             DomainAnalysis object containing the domain, date, and topics.
         """
         if not articles or len(articles) == 0:
-            return DomainAnalysis("unknown", datetime.now().date(), [])
+            return DomainAnalysis(
+            domain="unknown", 
+            date=datetime.now().date(), 
+            topics=[]
+        )
             
         domain = articles[0].domain
         
@@ -262,58 +257,50 @@ class LLMService:
                 "domain": domain,
                 "articles_text": combined_text
             })
+
+            structured_llm = ChatGoogleGenerativeAI(
+                model=settings.GEMINI_MODEL,
+                google_api_key=gemini_api_key,
+                temperature=settings.GEMINI_TEMPERATURE
+            ).with_structured_output(DomainAnalysisLLM)
             
             # Invoke the LLM
             print(f"Extracting topics for domain: {domain}...")
-            response = llm.invoke(prompt)
+            response = structured_llm.invoke(prompt)
             
             # Save response for debugging with domain name
             timestamp = datetime.now().strftime('%Y%m%d_%H%M')
             with open(f"domain_topics_{domain}_{timestamp}.json", "w", encoding="utf-8") as f:
-                f.write(response.content)
+                f.write(response.model_dump_json(indent=2))
+
                 
-            try:
-                raw_response = response.content
-    
-                # Find the first '[' and last ']' to extract just the JSON array
-                start_idx = raw_response.find('[')
-                end_idx = raw_response.rfind(']') + 1
-                
-                if start_idx != -1 and end_idx != -1:
-                    # Extract the JSON array part
-                    json_str = raw_response[start_idx:end_idx]
-                    print(f"Extracted JSON: {json_str[:100]}...")
-                    topics_data = json.loads(json_str)
-                else:
-                    print(f"No valid JSON array found in response: {raw_response[:100]}...")
-                    topics_data = []
-                # Convert to structured objects
-                topic_objects = []
-                for topic_data in topics_data:
-                    topic_obj = TopicAnalysis(
-                        topic=topic_data.get("topic", "not parseable"),
-                        political_leaning=topic_data.get("political_leaning", "közép"),
-                        sentiment=topic_data.get("sentiment", "semleges"),
-                        framing=topic_data.get("framing", ""),
-                        key_phrases=topic_data.get("key_phrases", []),
-                        article_urls=topic_data.get("article_urls", [])
-                    )
-                    topic_objects.append(topic_obj)
-                    
-                # Create and return the domain analysis object
-                return DomainAnalysis(
-                    domain=domain,
-                    date=datetime.now().date(),
-                    topics=topic_objects
+            topic_objects = []
+            for topic_data in response.topics:
+                topic_obj = TopicAnalysis(
+                    topic=topic_data.topic,
+                    political_leaning=topic_data.political_leaning,
+                    sentiment=topic_data.sentiment,
+                    framing=topic_data.framing,
+                    key_phrases=topic_data.key_phrases,
+                    article_urls=topic_data.article_urls
                 )
+                topic_objects.append(topic_obj)
                 
-            except json.JSONDecodeError as e:
-                print(f"Error parsing JSON from LLM response: {e}")
-                return DomainAnalysis(domain, datetime.now().date(), [])
-                
+            return DomainAnalysis(
+                domain=domain,
+                date=datetime.now().date(),
+                topics=topic_objects
+            )
+                    
         except Exception as e:
             print(f"Error extracting topics for {domain}: {e}")
-            return DomainAnalysis(domain, datetime.now().date(), [])
+            import traceback
+            traceback.print_exc()
+            return DomainAnalysis(
+                domain=domain, 
+                date=datetime.now().date(), 
+                topics=[]
+            )
         
     @staticmethod
     def cross_source_analysis(date: str, source_data: str) -> CrossSourceAnalysis:
