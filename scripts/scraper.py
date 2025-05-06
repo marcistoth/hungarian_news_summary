@@ -1292,6 +1292,7 @@ async def run_full_analysis_pipeline():
     await scrape_magyarjelen()
     await scrape_nyugatifeny()
     await scrape_index()
+    await scrape_magyarnemzet()
 
     try:
         print("Generating cross-source analysis...")

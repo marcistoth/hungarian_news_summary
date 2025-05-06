@@ -171,7 +171,8 @@ cross_source_template = ChatPromptTemplate.from_messages([
      
         Nagyon fontos hogy csak a legfontosabb kivonatokat (laponként max 2-3-at, többet ne) említs meg egy témához,
         és ebben a helyzetben is összegezd ezeket egyetlen "source coverage" részben, hogy ne legyenek redundánsak.
-        Az elemzésed legyen világos és tömör, és kerüld a költői vagy "felpörgető" nyelvezetet.
+        Különösen figyelj arra, hogy egy unified topicc részben ne szerepeljen több source coverage ugyanazzal a domainnel,
+        ilyenkor mindig fűzd össze a releváns információt domainenként egy "cource coverage" részbe
         
         
         Íme a témaelemzések az egyes forrásokból:
