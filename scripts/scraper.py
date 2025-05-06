@@ -968,7 +968,6 @@ async def scrape_nyugatifeny():
         href = a['href']
         if href and href.startswith("https") and href not in hrefs:
             hrefs.append(href)
-            print(href)
 
     articles = []
 
@@ -1177,6 +1176,108 @@ async def scrape_index():
 
     print(f"index summary inserted into db")
 
+async def scrape_magyarnemzet():
+    url = "https://www.magyarnemzet.hu"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    a_elements = soup.find_all('a', href=True)
+
+    hrefs = []
+    for a in a_elements:
+        href = a['href']
+        if href and not href.startswith("https") and not href.startswith("/publicapi") and href.count("/") > 2 and href not in hrefs:
+            hrefs.append(href)
+
+    articles=[]        
+
+    for href in hrefs:
+        response = requests.get(url + href)
+        soup = BeautifulSoup(response.text, "html.parser")
+        title_element = soup.find('meta', attrs={'property': 'og:title'})
+        if title_element is None:
+            title_element = soup.find('title')
+            if title_element is None:
+                print(f"title not found for {href}")
+                continue
+
+            title = title_element.text.strip()
+        else:
+            # For meta tags with og:title
+            title = title_element.get('content', '').strip()
+
+        published_time_tag = soup.find('meta', attrs={'property': 'article:published_time'})
+        publication_date = None
+        if published_time_tag and published_time_tag.get('content'):
+            date_str = published_time_tag['content']
+            try:
+                # Parse the ISO 8601 format string
+                publication_datetime = datetime.fromisoformat(date_str)
+                # Extract just the date part
+                publication_date = publication_datetime.date()
+            except ValueError:
+                print(f"Warning: Could not parse date string '{date_str}' from meta tag in {href}")
+        else:
+            print(f"Warning: Could not find publication time meta tag in {href}")
+        
+        if publication_date != date.today():
+            print(f"Skipping article (not target date): {href} with publication date: {publication_date}")
+            continue
+
+        content_parts = []
+            
+        # Try to extract lead
+        lead_element = soup.find('h2', class_='lead')
+        if lead_element:
+            content_parts.append(lead_element.text.strip().replace('\n', ''))
+        else:
+            print(f"Warning: No lead element found for {href}")
+        
+        # Try to extract article body
+        torzs_element = soup.find('app-article-text')
+        if torzs_element:
+            content_parts.append(torzs_element.text.strip().replace('\n', ''))
+        else:
+            print(f"Warning: No article body element found for {href}")
+            
+        # Check if we have any content
+        if not content_parts:
+            print(f"No content could be extracted, skipping {href}")
+            continue
+            
+        content = " ".join(content_parts)
+
+        print(f"  Title: {title}")
+        print(f"  Date: {publication_date}")
+
+
+        article_obj = ScrapedArticle(
+            url=url + href,
+            domain="magyarnemzet",
+            title=title,
+            content=content,
+            scraped_at=datetime.now(timezone.utc),
+            publication_date=date.today()
+        )
+    
+        articles.append(article_obj)
+
+    response = llm_service.summarize_multiple_articles(articles)
+    print(f"magyarnemzet response generated")
+    summary_obj = Summary(
+        domain="magyarnemzet",
+        language="hu",
+        date=datetime.now(tz=gmt_plus_2),
+        content=response
+    )
+    await insert_summary_to_db(summary_obj)
+
+    analysis_data = llm_service.extract_domain_topics(articles)
+    
+    await store_domain_analysis(analysis_data)
+
+    print(f"magyarnemzet summary inserted into db")
+
+
 async def run_full_analysis_pipeline():
     """Run the complete analysis pipeline for all sources."""
     current_date = date.today()
@@ -1207,4 +1308,5 @@ async def run_full_analysis_pipeline():
 if __name__ == "__main__":
     print("Running scraper script...")
     asyncio.run(run_full_analysis_pipeline())
+    # asyncio.run(scrape_magyarnemzet())
     print("Script finished.")

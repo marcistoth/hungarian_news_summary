@@ -92,6 +92,14 @@ export const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     secondaryColor: "#e3eaf7",     // light blue
     textColor: "#ffffff",          // white text
     logo: "/hungarian_news_summary/logos/index-logo.jpg"
+  },
+  magyarnemzet: {
+    name: "Magyar Nemzet", 
+    domain: "magyarnemzet",
+    primaryColor: "#2657A7",       // keeping current blue
+    secondaryColor: "#e3eaf7",     // light blue
+    textColor: "#ffffff",          // white text
+    logo: "/hungarian_news_summary/logos/magyarnemzet-logo.png"
   }
 };
 
