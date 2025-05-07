@@ -4,6 +4,7 @@ import { CrossSourceAnalysisResponse, UnifiedTopic } from '../types/analysis';
 import { API_URL } from '../config';
 import TopicCard from './TopicCard';
 import TopicAnalysisModal from './TopicAnalysisModal';
+import SentimentDashboard from './SentimentDashboard';
 import { formatDate } from '../utils/dateUtils';
 
 const TopicAnalysisPage: React.FC = () => {
@@ -103,6 +104,9 @@ const TopicAnalysisPage: React.FC = () => {
               />
             ))}
           </div>
+                 
+          <SentimentDashboard analysis={analysis.analysis} />
+  
           
           {analysis.analysis.unified_topics.length === 0 && (
             <div className="text-center p-10 bg-background-alt rounded-lg shadow-md">
