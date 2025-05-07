@@ -1284,29 +1284,66 @@ async def run_full_analysis_pipeline():
     """Run the complete analysis pipeline for all sources."""
     current_date = date.today()
     
-    await scrape_telex()
-    await scrape_origo()
-    await scrape_hvg()
-    await scrape_mandiner()
-    await scrape_negynegynegy()
-    await scrape_24ponthu()
-    await scrape_vadhajtasok()
-    await scrape_magyarjelen()
-    await scrape_nyugatifeny()
-    await scrape_index()
-    await scrape_magyarnemzet()
+    # Dictionary to track scraping results for each source
+    scrape_results = {
+        "telex": None,
+        "origo": None,
+        "hvg": None,
+        "mandiner": None,
+        "444": None,
+        "24.hu": None,
+        "vadhajtasok": None,
+        "magyarjelen": None,
+        "nyugatifeny": None,
+        "index": None,
+        "magyarnemzet": None
+    }
+    
+    # Function to safely run a scraper
+    async def safe_scrape(scrape_func, source_name):
+        try:
+            print(f"Starting to scrape {source_name}...")
+            await scrape_func()
+            print(f"Successfully completed scraping {source_name}")
+            scrape_results[source_name] = "success"
+        except Exception as e:
+            scrape_results[source_name] = "failed"
+            print(f"Error scraping {source_name}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    await safe_scrape(scrape_telex, "telex")
+    await safe_scrape(scrape_origo, "origo")
+    await safe_scrape(scrape_hvg, "hvg")
+    await safe_scrape(scrape_mandiner, "mandiner")
+    await safe_scrape(scrape_negynegynegy, "444")
+    await safe_scrape(scrape_24ponthu, "24.hu")
+    await safe_scrape(scrape_vadhajtasok, "vadhajtasok")
+    await safe_scrape(scrape_magyarjelen, "magyarjelen")
+    await safe_scrape(scrape_nyugatifeny, "nyugatifeny")
+    await safe_scrape(scrape_index, "index")
+    await safe_scrape(scrape_magyarnemzet, "magyarnemzet")
 
+    # Count successful scrapes
+    successful = sum(1 for result in scrape_results.values() if result == "success")
+    print(f"\nScraping completed: {successful} out of {len(scrape_results)} sources were successful")
+    
     try:
-        print("Generating cross-source analysis...")
-        cross_analysis = await generate_cross_source_analysis(current_date)
-        
-        # Store the cross-source analysis in a new table
-        print("Storing cross-source analysis in database...")
-        await store_cross_source_analysis(cross_analysis)
-        
-        print("Analysis pipeline completed successfully")
+        # Only proceed with cross-source analysis if we have some successful scrapes
+        if successful > 0:
+            print("Generating cross-source analysis...")
+            cross_analysis = await generate_cross_source_analysis(current_date)
+            
+            print("Storing cross-source analysis in database...")
+            await store_cross_source_analysis(cross_analysis)
+            
+            print("Analysis pipeline completed successfully")
+        else:
+            print("No sources were successfully scraped, skipping cross-source analysis")
     except Exception as e:
         print(f"Error in cross-source analysis: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     print("Running scraper script...")
