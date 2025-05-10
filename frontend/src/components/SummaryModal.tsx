@@ -15,7 +15,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ summary, onClose }) => {
   
   if (!summary) return null;
 
-  const parsedSections = parseSummaryContent(summary.content);
+  const parsedSections = parseSummaryContent(summary.content, language);
   const sourceConfig = getNewsSourceConfig(summary.domain);
   
   // Prevent clicks inside the modal from closing it

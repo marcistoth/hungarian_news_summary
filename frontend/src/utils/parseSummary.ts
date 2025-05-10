@@ -1,15 +1,27 @@
+import { Language } from '../contexts/LanguageContext';
+
 export interface ParsedSummarySection {
     title: string;
     content: string;
   }
   
-  const sectionTitles: { [key: string]: string } = {
-    BEVEZETO: "Bevezető",
-    BELFOLD: "Belpolitika",
-    GAZDASAG: "Gazdaság",
-    KULFOLD: "Külföld",
-    TARSADALOM: "Társadalom, Kultúra, Tudomány",
-    ZARAS: "Zárás",
+  const sectionTitles: Record<Language, Record<string, string>> = {
+    hu: {
+      BEVEZETO: "Bevezető",
+      BELFOLD: "Belpolitika",
+      GAZDASAG: "Gazdaság",
+      KULFOLD: "Külföld",
+      TARSADALOM: "Társadalom, Kultúra, Tudomány",
+      ZARAS: "Zárás",
+    },
+    en: {
+      BEVEZETO: "Introduction",
+      BELFOLD: "Domestic Politics",
+      GAZDASAG: "Economy",
+      KULFOLD: "Foreign Affairs",
+      TARSADALOM: "Society, Culture & Science",
+      ZARAS: "Conclusion",
+    }
   };
   
   /**
@@ -51,7 +63,7 @@ export interface ParsedSummarySection {
   };
   
   
-  export const parseSummaryContent = (rawContentInput: string): ParsedSummarySection[] => {
+  export const parseSummaryContent = (rawContentInput: string, language: Language = 'hu'): ParsedSummarySection[] => {
     // Clean the input first
     const rawContent = cleanRawContent(rawContentInput);
   
@@ -63,6 +75,10 @@ export interface ParsedSummarySection {
     // Regex assumes markers are correctly placed after cleaning
     const regex = /\[START_([A-Z_]+)\]([\s\S]*?)\[END_\1\]/g;
     let match;
+
+
+    // Titles for current language
+    const currentTitles = sectionTitles[language];
   
     // Find the main summary block first if it exists
     const mainSummaryMatch = rawContent.match(/\[START_MAIN_SUMMARY\]([\s\S]*?)\[END_MAIN_SUMMARY\]/);
@@ -74,7 +90,7 @@ export interface ParsedSummarySection {
       if (key === 'MAIN_SUMMARY' || key === 'SHORT_SUMMARY') continue;
   
       let content = match[2].trim();
-      const title = sectionTitles[key] || key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+      const title = currentTitles[key] || key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
   
       const titlePattern = new RegExp(`^\\*\\*${title}\\*\\*\\s*\\n?`);
       content = content.replace(titlePattern, '').trim();
@@ -99,7 +115,7 @@ export interface ParsedSummarySection {
     return sections;
   };
   
-  export const getSummaryPreview = (rawContentInput: string): string => {
+  export const getSummaryPreview = (rawContentInput: string, language: Language = 'hu'): string => {
     // Clean the input first
     const rawContent = cleanRawContent(rawContentInput);
   
