@@ -8,6 +8,7 @@ import AboutPage from './components/AboutPage';
 import TopicAnalysisPage from './components/TopicAnalysisPage';
 import { Summary, SummaryApiResponse } from './types';
 import { API_URL } from './config';
+import DelayedLoadingMessage from './components/DelayedLoadingMessage';
 
 // Homepage component
 const HomePage = () => {
@@ -87,6 +88,7 @@ const HomePage = () => {
             <p className="text-lg text-text-light">
               Összefoglalók betöltése...
             </p>
+            <DelayedLoadingMessage isLoading={loading} />
           </div>
         )}
         

@@ -6,6 +6,7 @@ import TopicCard from './TopicCard';
 import TopicAnalysisModal from './TopicAnalysisModal';
 import SentimentDashboard from './SentimentDashboard';
 import { formatDate } from '../utils/dateUtils';
+import DelayedLoadingMessage from './DelayedLoadingMessage';
 
 const TopicAnalysisPage: React.FC = () => {
   const [analysis, setAnalysis] = useState<CrossSourceAnalysisResponse | null>(null);
@@ -74,6 +75,7 @@ const TopicAnalysisPage: React.FC = () => {
         <div className="flex flex-col justify-center items-center h-64 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
           <p className="text-lg text-text-light">Elemzés betöltése...</p>
+          <DelayedLoadingMessage isLoading={loading} />
         </div>
       )}
       
