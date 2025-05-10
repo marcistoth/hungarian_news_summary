@@ -102,8 +102,8 @@ export interface ParsedSummarySection {
   
      // Handle content outside specific section markers but within MAIN_SUMMARY
      const textBeforeFirstSection = contentToParse.split(/\[START_[A-Z_]+\]/)[0]?.trim();
-     if (textBeforeFirstSection && !sections.some(s => s.title === sectionTitles.BEVEZETO)) {
-         sections.unshift({ title: sectionTitles.BEVEZETO, content: textBeforeFirstSection });
+     if (textBeforeFirstSection && !sections.some(s => s.title === sectionTitles[language].BEVEZETO)) {
+         sections.unshift({ title: sectionTitles[language].BEVEZETO, content: textBeforeFirstSection });
      } else if (!sections.length && contentToParse) {
          // If no sections found within MAIN_SUMMARY, treat its content as general
          sections.push({ title: "Összefoglaló", content: contentToParse });
@@ -119,7 +119,7 @@ export interface ParsedSummarySection {
     // Clean the input first
     const rawContent = cleanRawContent(rawContentInput);
   
-    if (!rawContent) return "Nem sikerült betölteni az előnézetet."; // Provide error message
+    if (!rawContent) return sectionTitles[language].ERROR;
   
     // Extract content between SHORT_SUMMARY markers
     const shortSummaryRegex = /\[START_SHORT_SUMMARY\]([\s\S]*?)\[END_SHORT_SUMMARY\]/;
@@ -130,8 +130,8 @@ export interface ParsedSummarySection {
     }
   
     // Fallback: If SHORT_SUMMARY markers are missing after cleaning, try BEVEZETO
-    const sections = parseSummaryContent(rawContent); // Use the already cleaned content
-    const bevezeto = sections.find(s => s.title === sectionTitles.BEVEZETO);
+    const sections = parseSummaryContent(rawContent, language); // Use the already cleaned content
+    const bevezeto = sections.find(s => s.title === sectionTitles[language].BEVEZETO);
     if (bevezeto?.content) {
       return bevezeto.content;
     }
