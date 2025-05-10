@@ -131,7 +131,15 @@ cross_source_template = ChatPromptTemplate.from_messages([
         You are an expert media analyst specializing in Hungarian news content and political bias analysis.
         Your task is to identify common topics across different news sources and analyze how each source
         covers the same events with different perspectives, sentiment, and political leanings.
-        You must write your entire analysis in {language}.
+        You must write your entire analysis in {language} language.
+        
+        CRITICAL: Your output must strictly follow the Pydantic model structure.
+        For EACH unified topic, you MUST include ALL required fields including:
+        - name
+        - source_coverage (with all its nested required fields)
+        - comparative_analysis (this field is REQUIRED for every topic and must provide actual analysis)
+        
+        Never omit required fields from the structure.
     """),
     ("user", """
         Elemezd a következő téma adatokat a különböző magyar hírforrásokból {date} napra vonatkozóan.
@@ -148,34 +156,32 @@ cross_source_template = ChatPromptTemplate.from_messages([
         6. Ha esetleg egy cikk többször szerepelne a keretezésben, akkor csak egyszer említsd meg
         7. Add meg az eredeti cikkek URL-jeit, hogy azok elérhetőek legyenek az elemzésben
         
-        Az elemzésedet a megadott struktúrában add vissza:
-     
-        {{
-          "date": "{date}",
-          "unified_topics": [
-            {{
-              "name": "Egységesített téma neve {language} nyelven",
-              "source_coverage": [
-                {{
-                  "domain": "forrás_neve",
-                  "original_topic_name": "Az adott forrás által használt eredeti témanév {language} nyelven",
-                  "sentiment": "hangvétel az adott forrásban",
-                  "political_leaning": "politikai beállítottság",
-                  "key_phrases": ["kulcsmondat1 {language} nyelven", "kulcsmondat2 {language} nyelven"],
-                  "framing": "keretezés elemzése {language} nyelven",
-                  "article_urls": ["https://full.url.com/article1", "https://full.url.com/article2"]
-                }}
-              ],
-              "comparative_analysis": "Elemzés arról, hogy az egyes források hogyan fedik le ugyanazt a témát különböző módon {language} nyelven",
-              "language": "{language}"
-            }}
-          ]
-        }}
-     
-        Nagyon fontos hogy csak a legfontosabb kivonatokat (laponként max 2-3-at, többet ne) említs meg egy témához,
-        és ebben a helyzetben is összegezd ezeket egyetlen "source coverage" részben, hogy ne legyenek redundánsak.
-        Különösen figyelj arra, hogy egy unified topicc részben ne szerepeljen több source coverage ugyanazzal a domainnel,
-        ilyenkor mindig fűzd össze a releváns információt domainenként egy "cource coverage" részbe
+        KRITIKUS: A kimenetnek a következő Pydantic modell struktúrát KELL követnie:
+        
+        ```python
+        class SourceCoverage(BaseModel):
+            domain: str  # A forrás domain neve (pl. telex, origo)
+            original_topic_name: str  # A téma neve az adott forrásnál
+            sentiment: str  # A hangvétel (pontosan így: "pozitív", "negatív", vagy "semleges")
+            political_leaning: str  # Politikai beállítottság (pontosan így: "bal", "közép-bal", "közép", "közép-jobb", "jobb")
+            key_phrases: List[str]  # Kulcsmondatok
+            framing: str  # A téma keretezésének elemzése
+            article_urls: List[str]  # A cikkek URL-jei
+        
+        class UnifiedTopic(BaseModel):
+            name: str  # Az egységesített téma neve
+            source_coverage: List[SourceCoverage]  # A források lefedettsége
+            comparative_analysis: str  # Összehasonlító elemzés a források között - KÖTELEZŐ KITÖLTENI!
+        
+        class CrossSourceAnalysis(BaseModel):
+            date: str  # Az elemzés dátuma
+            unified_topics: List[UnifiedTopic]  # Egységesített témák listája
+            language: str  # Az elemzés nyelve ("hu" vagy "en")
+        ```
+        
+        FIGYELEM: Minden témához KÖTELEZŐ a "comparative_analysis" mezőt kitölteni!
+        Ez a mező összehasonlító elemzést tartalmaz arról, hogyan fedik le az egyes források ugyanazt a témát különböző módon,
+        kiemelve a főbb különbségeket a keretezésben. SOHA ne hagyd üresen ezt a mezőt!
         
         Az elemzésed {language} nyelven készüljön.
         
