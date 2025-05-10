@@ -28,11 +28,17 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick, highlightSources 
     
     return counts;
   }, [topic]);
+
+  const cardStyle = {
+    borderTop: `4px solid #2657A7`,  // Same blue color used in the app
+    borderRadius: '8px',
+  };
   
   return (
     <div 
       className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
       onClick={onClick}
+      style={cardStyle}
     >
       <div className="p-5">
         <h3 className="text-xl font-semibold mb-4 text-primary-dark">

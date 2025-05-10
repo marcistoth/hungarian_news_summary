@@ -146,7 +146,7 @@ const TopicAnalysisPage: React.FC = () => {
           {/* Source filters */}
           {allSources.length > 0 && (
             <div className="mb-6">
-              <h3 className="font-medium text-base mb-2">{t('analysis.filterBySource')}:</h3>
+              <h3 className="font-medium text-base mb-2">{t('analysis.filterBySource')}</h3>
               <div className="flex flex-wrap gap-2">
                 {allSources.map(domain => {
                   const sourceConfig = getNewsSourceConfig(domain);
