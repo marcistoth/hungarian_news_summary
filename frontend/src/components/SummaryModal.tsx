@@ -3,6 +3,7 @@ import { formatDate } from '../utils/dateUtils';
 import { parseSummaryContent } from '../utils/parseSummary';
 import { Summary } from '../types';
 import { getNewsSourceConfig } from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface SummaryModalProps {
   summary: Summary | null;
@@ -10,6 +11,8 @@ interface SummaryModalProps {
 }
 
 const SummaryModal: React.FC<SummaryModalProps> = ({ summary, onClose }) => {
+  const { t, language } = useLanguage();
+  
   if (!summary) return null;
 
   const parsedSections = parseSummaryContent(summary.content);
@@ -44,17 +47,21 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ summary, onClose }) => {
               src={sourceConfig.logo} 
               alt={`${sourceConfig.name} logo`}
               className="h-8 mr-3 rounded p-1" 
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = '/hungarian_news_summary/logos/default-logo.png';
+              }}
             />
             <h2 
               id="modal-title"
               className="text-xl font-bold"
             >
-              {sourceConfig.name} Összefoglaló
+              {sourceConfig.name} {language === 'hu' ? 'Összefoglaló' : 'Summary'}
             </h2>
           </div>
           
           <span className="text-sm opacity-90">
-            {formatDate(new Date(summary.date))}
+            {formatDate(new Date(summary.date), language)}
           </span>
         </div>
         
@@ -62,7 +69,7 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ summary, onClose }) => {
         <button
           onClick={onClose}
           className="absolute top-4 right-4 flex items-center justify-center w-10 h-10 rounded-full bg-black bg-opacity-20 hover:bg-opacity-40 hover:shadow-lg shadow-md transition-all transform hover:scale-105 cursor-pointer"
-          aria-label="Close modal"
+          aria-label={t('topic.close')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />

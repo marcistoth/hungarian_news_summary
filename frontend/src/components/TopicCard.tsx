@@ -1,44 +1,45 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { UnifiedTopic } from '../types/analysis';
 import { getNewsSourceConfig } from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface TopicCardProps {
   topic: UnifiedTopic;
   onClick: () => void;
+  highlightSources?: string[];
 }
 
-const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
-//   const sourcesCount = topic.source_coverage.length;
+const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick, highlightSources }) => {
+  const { t } = useLanguage();
   
-  // Group sources by sentiment
-  const sentimentCounts = {
-    pozitív: 0,
-    semleges: 0,
-    negatív: 0
-  };
-  
-  topic.source_coverage.forEach((source: UnifiedTopic['source_coverage'][number]) => {
-    if (source.sentiment in sentimentCounts) {
-      sentimentCounts[source.sentiment as keyof typeof sentimentCounts] += 1;
-    }
-  });
-
-  const cardStyle = {
-    borderTop: `4px solid #2657A7`,
-    borderRadius: '8px',
-  };
-
+  // Calculate sentiment counts
+  const sentimentCounts = useMemo(() => {
+    const counts = {
+      pozitív: 0,
+      semleges: 0,
+      negatív: 0
+    };
+    
+    topic.source_coverage.forEach(source => {
+      if (source.sentiment === 'pozitív') counts.pozitív++;
+      else if (source.sentiment === 'negatív') counts.negatív++;
+      else counts.semleges++;
+    });
+    
+    return counts;
+  }, [topic]);
   
   return (
     <div 
-      className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+      className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
       onClick={onClick}
-      style={cardStyle}
     >
       <div className="p-5">
-        <h3 className="text-xl font-bold text-primary mb-3">{topic.name}</h3>
+        <h3 className="text-xl font-semibold mb-4 text-primary-dark">
+          {topic.name}
+        </h3>
         
-        <div className="flex items-center gap-2 flex-wrap mb-4">
+        <div className="flex flex-wrap gap-2 mb-3">
           {(() => {
             const renderedDomains = new Set<string>();
             
@@ -50,10 +51,14 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
               renderedDomains.add(source.domain);
               
               const sourceConfig = getNewsSourceConfig(source.domain);
+              const isHighlighted = highlightSources?.includes(source.domain);
+              
               return (
                 <div 
                   key={`source-${index}`}
-                  className="flex items-center h-8 px-2 rounded-full"
+                  className={`flex items-center h-8 px-2 rounded-full transition-all ${
+                    isHighlighted ? 'ring-2 ring-primary shadow-sm scale-105' : ''
+                  }`}
                   style={{ 
                     backgroundColor: sourceConfig.secondaryColor,
                     color: sourceConfig.primaryColor
@@ -62,7 +67,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
                   <img 
                     src={sourceConfig.logo} 
                     alt={sourceConfig.name}
-                    className="h-5 w-5 mr-1 rounded-full object-cover" 
+                    className="w-5 h-5 mr-1 rounded" 
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = '/hungarian_news_summary/logos/default-logo.png';
@@ -75,21 +80,21 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
           })()}
         </div>
         <div className="mb-4">
-          <h4 className="text-sm font-medium text-text-light mb-2">Hangvétel megoszlása:</h4>
+          <h4 className="text-sm font-medium text-text-light mb-2">{t('analysis.sentiment')}:</h4>
           <div className="flex space-x-2">
             {sentimentCounts.pozitív > 0 && (
               <div className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">
-                Pozitív: {sentimentCounts.pozitív}
+                {t('analysis.positive')}: {sentimentCounts.pozitív}
               </div>
             )}
             {sentimentCounts.semleges > 0 && (
               <div className="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded">
-                Semleges: {sentimentCounts.semleges}
+                {t('analysis.neutral')}: {sentimentCounts.semleges}
               </div>
             )}
             {sentimentCounts.negatív > 0 && (
               <div className="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
-                Negatív: {sentimentCounts.negatív}
+                {t('analysis.negative')}: {sentimentCounts.negatív}
               </div>
             )}
           </div>
@@ -102,7 +107,7 @@ const TopicCard: React.FC<TopicCardProps> = ({ topic, onClick }) => {
         <div 
           className="inline-flex items-center text-xs font-medium text-primary"
         >
-          Részletes elemzés
+          {t('analysis.detailedAnalysis')}
           <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

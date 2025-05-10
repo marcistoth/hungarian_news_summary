@@ -9,6 +9,7 @@ import TopicAnalysisPage from './components/TopicAnalysisPage';
 import { Summary, SummaryApiResponse } from './types';
 import { API_URL } from './config';
 import DelayedLoadingMessage from './components/DelayedLoadingMessage';
+import { useLanguage } from './contexts/LanguageContext';
 
 // Homepage component
 const HomePage = () => {
@@ -17,6 +18,7 @@ const HomePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const { language, t } = useLanguage();
 
   useEffect(() => {
     const fetchSummaries = async () => {
@@ -86,7 +88,7 @@ const HomePage = () => {
           <div className="flex flex-col justify-center items-center h-64 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
             <p className="text-lg text-text-light">
-              Összefoglalók betöltése...
+            <p>{t('home.loading')}</p>
             </p>
             <DelayedLoadingMessage isLoading={loading} />
           </div>
@@ -94,7 +96,7 @@ const HomePage = () => {
         
         {error && (
           <div className="text-center p-6 md:p-8 bg-red-50 border-2 border-error rounded-lg max-w-2xl mx-auto">
-            <p className="text-xl text-error font-semibold mb-2">Hoppá! Hiba történt:</p>
+            <p className="text-xl text-error font-semibold mb-2"><p>{t('home.error')}</p></p>
             <p className="text-text-light bg-red-100 p-2 rounded inline-block">{error}</p>
           </div>
         )}
@@ -112,7 +114,7 @@ const HomePage = () => {
               ))
             ) : (
               <p className="text-center text-xl text-text-muted py-12 md:col-span-2 lg:col-span-3">
-                Jelenleg nincsenek elérhető összefoglalók erre a napra. Nézz vissza később!
+                <p>{t('home.noSummaries')}</p>
               </p>
             )}
           </div>

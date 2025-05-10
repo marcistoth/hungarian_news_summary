@@ -1,12 +1,16 @@
 import React, { useMemo } from 'react';
 import { CrossSourceAnalysis } from '../types/analysis';
 import { getNewsSourceConfig } from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface SentimentDashboardProps {
   analysis: CrossSourceAnalysis;
+  selectedSources?: string[];
 }
 
-const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => {
+const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis, selectedSources }) => {
+  const { t } = useLanguage();
+  
   // Analyze data to extract sentiment metrics
   const metrics = useMemo(() => {
     // Initialize counters
@@ -21,6 +25,10 @@ const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => 
     analysis.unified_topics.forEach(topic => {
       topic.source_coverage.forEach(coverage => {
         const domain = coverage.domain;
+        
+        // Skip if we're filtering and this source isn't selected
+        if (selectedSources && !selectedSources.includes(domain)) return;
+        
         uniqueSources.add(domain);
         
         // Initialize counters for this source if needed
@@ -45,7 +53,7 @@ const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => 
       sourceCounts,
       uniqueSources: Array.from(uniqueSources)
     };
-  }, [analysis]);
+  }, [analysis, selectedSources]);
 
   // Calculate overall sentiment distribution
   const overallSentiment = useMemo(() => {
@@ -68,39 +76,39 @@ const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => 
 
   return (
     <div className="bg-white rounded-lg shadow-md p-5 mb-8">
-      <h2 className="text-xl font-semibold mb-4 text-primary-dark">Hírhangulati Elemzés</h2>
+      <h2 className="text-xl font-semibold mb-4 text-primary-dark">{t('dashboard.title')}</h2>
       
       {/* Overall sentiment */}
       <div className="mb-5">
-        <h3 className="text-base font-medium mb-2">Összes média hangvétele</h3>
+        <h3 className="text-base font-medium mb-2">{t('dashboard.overallSentiment')}</h3>
         <div className="flex items-center mb-2">
           <div className="w-full h-6 bg-gray-100 rounded-full overflow-hidden flex">
             <div 
               className="h-full bg-green-500" 
               style={{width: `${overallSentiment.positive}%`}}
-              title={`Pozitív: ${overallSentiment.positive}%`}
+              title={`${t('analysis.positive')}: ${overallSentiment.positive}%`}
             ></div>
             <div 
               className="h-full bg-gray-300" 
               style={{width: `${overallSentiment.neutral}%`}}
-              title={`Semleges: ${overallSentiment.neutral}%`}
+              title={`${t('analysis.neutral')}: ${overallSentiment.neutral}%`}
             ></div>
             <div 
               className="h-full bg-red-500" 
               style={{width: `${overallSentiment.negative}%`}}
-              title={`Negatív: ${overallSentiment.negative}%`}
+              title={`${t('analysis.negative')}: ${overallSentiment.negative}%`}
             ></div>
           </div>
         </div>
         <div className="flex justify-between text-xs text-text-light">
-          <span>Pozitív ({overallSentiment.positive}%)</span>
-          <span>Semleges ({overallSentiment.neutral}%)</span>
-          <span>Negatív ({overallSentiment.negative}%)</span>
+          <span>{t('analysis.positive')} ({overallSentiment.positive}%)</span>
+          <span>{t('analysis.neutral')} ({overallSentiment.neutral}%)</span>
+          <span>{t('analysis.negative')} ({overallSentiment.negative}%)</span>
         </div>
       </div>
       
       {/* Per source sentiment */}
-      <h3 className="text-base font-medium mb-3">Médiaforrásonként</h3>
+      <h3 className="text-base font-medium mb-3">{t('dashboard.bySource')}</h3>
       <div className="space-y-3">
         {metrics.uniqueSources.map(domain => {
           const sentimentCounts = metrics.sentimentBySource[domain];
@@ -146,7 +154,7 @@ const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => 
       </div>
       
       {/* Political leaning chart */}
-      <h3 className="text-base font-medium mt-6 mb-3">Politikai beállítottság</h3>
+      <h3 className="text-base font-medium mt-6 mb-3">{t('dashboard.politicalLeaning')}</h3>
       <div className="space-y-3">
         {metrics.uniqueSources.map(domain => {
           const politicalCounts = metrics.politicalBySource[domain];
@@ -173,31 +181,31 @@ const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => 
                 <div 
                   className="bg-blue-600 h-full" 
                   style={{width: `${total ? (politicalCounts.bal/total*100) : 0}%`}}
-                  title="Bal"
+                  title={t('dashboard.left')}
                 ></div>
                 <div 
                   className="bg-blue-400 h-full" 
                   style={{width: `${total ? (politicalCounts['közép-bal']/total*100) : 0}%`}}
-                  title="Közép-bal"
+                  title={t('dashboard.centerLeft')}
                 ></div>
                 <div 
                   className="bg-gray-400 h-full" 
                   style={{width: `${total ? (politicalCounts.közép/total*100) : 0}%`}}
-                  title="Közép"
+                  title={t('dashboard.center')}
                 ></div>
                 <div 
                   className="bg-orange-400 h-full" 
                   style={{width: `${total ? (politicalCounts['közép-jobb']/total*100) : 0}%`}}
-                  title="Közép-jobb"
+                  title={t('dashboard.centerRight')}
                 ></div>
                 <div 
                   className="bg-orange-600 h-full" 
                   style={{width: `${total ? (politicalCounts.jobb/total*100) : 0}%`}}
-                  title="Jobb"
+                  title={t('dashboard.right')}
                 ></div>
               </div>
               <div className="w-16 text-xs">
-                {total} téma
+                {total} {t('dashboard.topics')}
               </div>
             </div>
           );
@@ -207,23 +215,23 @@ const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ analysis }) => 
       <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-text-muted flex justify-between">
         <div className="flex items-center">
           <div className="w-3 h-3 bg-blue-600 rounded-full mr-1"></div>
-          <span>Bal</span>
+          <span>{t('dashboard.left')}</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-blue-400 rounded-full mr-1"></div>
-          <span>Közép-bal</span>
+          <span>{t('dashboard.centerLeft')}</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-gray-400 rounded-full mr-1"></div>
-          <span>Közép</span>
+          <span>{t('dashboard.center')}</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-orange-400 rounded-full mr-1"></div>
-          <span>Közép-jobb</span>
+          <span>{t('dashboard.centerRight')}</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-orange-600 rounded-full mr-1"></div>
-          <span>Jobb</span>
+          <span>{t('dashboard.right')}</span>
         </div>
       </div>
     </div>

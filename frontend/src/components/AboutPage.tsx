@@ -1,40 +1,46 @@
 import React from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
+
 
 const AboutPage: React.FC = () => {
+
+  const { language, t } = useLanguage();
+
+
   return (
     <div className="max-w-3xl mx-auto px-4">
       <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent">
-        A Projektről
+        {t('about.title')}
       </h1>
       
       <section className="mb-10 bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Mi ez az oldal?</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">{t('about.whatIsTitle')}</h2>
         <p className="mb-4">
-          A Magyar Hírek Összefoglaló egy innovatív, mesterséges intelligencia által működtetett hírportál, amely naponta feldolgozza a legnagyobb magyar hírforrások tartalmát. Az oldal egyedülálló módon nem csak összegyűjti, hanem elemzi és összehasonlítja a különböző médiumok hírtálalását és keretezését.
+          {t('about.whatIsParagraph1')}
         </p>
         <p>
-          A projekt célja kettős: egyrészt időt takarít meg azzal, hogy tömör, lényegre törő áttekintést ad a napi legfontosabb eseményekről, másrészt segít átlátni a különböző hírforrások közötti különbségeket és hasonlóságokat, így támogatva a médiatudatosságot.
+          {t('about.whatIsParagraph2')}
         </p>
       </section>
       
       <section className="mb-10 bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Hogyan működik?</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">{t('about.howWorksTitle')}</h2>
         <p className="mb-4">
-          Az alkalmazás naponta többször, automatikusan begyűjti a nagy magyar hírportálok friss cikkeit, majd a Google Gemini mesterséges intelligencia segítségével elemzi őket.
+          {t('about.howWorksParagraph1')}
         </p>
         <p className="mb-4">
-          Minden hírforráshoz készül egy átfogó napi összefoglaló, ami a legfontosabb témakörök szerint rendszerezi az információkat. Emellett az alkalmazás összehasonlító elemzést is végez, amely részletesen bemutatja, hogyan tudósítanak az egyes médiumok ugyanazokról az eseményekről, kiemelve a hangvételbeli és keretezésbeli különbségeket.
+          {t('about.howWorksParagraph2')}
         </p>
         <p>
-          Az elemzések automatikusan készülnek, ezért előfordulhatnak pontatlanságok. Az oldal célja nem a hírforrások helyettesítése, hanem egy mélyebb rálátás biztosítása a magyar médiakörképre.
+          {t('about.howWorksParagraph3')}
         </p>
       </section>
 
       <section className="mb-10 bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Technológiai háttér</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">{t('about.technologyTitle')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-xl font-medium mb-2 text-primary">Frontend</h3>
+            <h3 className="text-xl font-medium mb-2 text-primary">{t('about.frontendTitle')}</h3>
             <ul className="list-disc list-inside space-y-1">
               <li>React + TypeScript</li>
               <li>Tailwind CSS</li>
@@ -42,7 +48,7 @@ const AboutPage: React.FC = () => {
             </ul>
           </div>
           <div>
-            <h3 className="text-xl font-medium mb-2 text-primary">Backend</h3>
+            <h3 className="text-xl font-medium mb-2 text-primary">{t('about.backendTitle')}</h3>
             <ul className="list-disc list-inside space-y-1">
               <li>FastAPI (Python)</li>
               <li>PostgreSQL (Neon.tech)</li>
@@ -54,9 +60,9 @@ const AboutPage: React.FC = () => {
       </section>
 
       <section className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Készítő</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-primary-dark">{t('about.creatorTitle')}</h2>
         <p className="mb-2">
-          Az alkalmazást Marci készítette portfólió projektként.
+          {t('about.creatorDescription')}
         </p>
         <div className="flex space-x-4 mt-4">
           <a href="https://github.com/marcistoth" target="_blank" rel="noopener noreferrer" className="flex items-center text-primary hover:text-primary-dark">

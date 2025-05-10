@@ -1,20 +1,22 @@
 import React from 'react';
 import { UnifiedTopic } from '../types/analysis';
 import { getNewsSourceConfig } from '../config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface TopicAnalysisModalProps {
   topic: UnifiedTopic;
   onClose: () => void;
+  highlightSources?: string[];
 }
 
-const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose }) => {
+const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose, highlightSources }) => {
+  const { t } = useLanguage();
+  
   // Prevent clicks inside the modal from closing it
   const handleModalContentClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
 
-  console.log('Topic data:', topic.source_coverage[0]);
-  
   // Helper to get color for sentiment
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment.toLowerCase()) {
@@ -27,7 +29,7 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
   // Helper to get color for political leaning
   const getLeaningColor = (leaning: string) => {
     switch (leaning.toLowerCase()) {
-      case 'bal':
+      case 'bal': return 'bg-blue-100 text-blue-800';
       case 'közép-bal': return 'bg-blue-100 text-blue-800';
       case 'közép': return 'bg-gray-100 text-gray-800';
       case 'közép-jobb':
@@ -60,7 +62,7 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
           {/* Comparative Analysis */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-3 pb-2 border-b border-gray-200">
-              Összehasonlító elemzés
+              {t('analysis.detailedAnalysis')}
             </h3>
             <div className="prose max-w-none text-text-light">
               {topic.comparative_analysis.split('\n').map((paragraph, idx) => (
@@ -71,15 +73,23 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
           
           {/* Sources Coverage */}
           <h3 className="text-lg font-semibold mb-4 pb-2 border-b border-gray-200">
-            Hírforrások tudósítása
+            {t('topic.sourcesCoverage')}
           </h3>
           
           <div className="space-y-6">
             {topic.source_coverage.map((source, idx) => {
               const sourceConfig = getNewsSourceConfig(source.domain);
+              const isHighlighted = highlightSources?.includes(source.domain);
               
               return (
-                <div key={`source-${idx}`} className="bg-background p-4 rounded-lg border border-gray-100">
+                <div 
+                  key={`source-${idx}`} 
+                  className={`bg-background p-4 rounded-lg border ${
+                    isHighlighted 
+                      ? 'border-primary shadow-md' 
+                      : 'border-gray-100'
+                  }`}
+                >
                   {/* Source Header */}
                   <div 
                     className="flex items-center mb-3 pb-2 border-b"
@@ -114,16 +124,16 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
                     </div>
                     
                     <p className="text-sm text-text-light">
-                      <span className="font-medium">Eredeti téma:</span> {source.original_topic_name}
+                      <span className="font-medium">{t('topic.originalTopic')}:</span> {source.original_topic_name}
                     </p>
                     
                     <p className="text-sm text-text-light">
-                      <span className="font-medium">Keretezés:</span> {source.framing}
+                      <span className="font-medium">{t('topic.framing')}:</span> {source.framing}
                     </p>
                     
                     {source.key_phrases.length > 0 && (
                       <div className="mt-2">
-                        <p className="text-sm font-medium mb-1">Kulcsmondatok:</p>
+                        <p className="text-sm font-medium mb-1">{t('topic.keyPhrases')}:</p>
                         <ul className="list-disc list-inside text-sm text-text-light space-y-1">
                           {source.key_phrases.map((phrase, i) => (
                             <li key={`phrase-${idx}-${i}`} className="italic">"{phrase}"</li>
@@ -133,7 +143,7 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
                     )}
                       {source.article_urls && source.article_urls.length > 0 && (
                       <div className="mt-3 border-t border-gray-100 pt-2">
-                        <p className="text-sm font-medium mb-1">Eredeti cikkek:</p>
+                        <p className="text-sm font-medium mb-1">{t('topic.originalArticles')}:</p>
                         <div className="flex flex-wrap gap-2 mt-2">
                           {source.article_urls.map((url, i) => (
                             <a 
@@ -143,7 +153,7 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose 
                               rel="noopener noreferrer"
                               className="bg-blue-600 text-white text-xs px-3 py-1 rounded-md flex items-center hover:bg-blue-700 transition-colors shadow-sm"
                             >
-                              Forrás {i+1}
+                              {t('topic.originalArticles')} {i+1}
                               <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                               </svg>
