@@ -10,20 +10,23 @@ const AboutPage: React.FC = () => {
       <section className="mb-10 bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Mi ez az oldal?</h2>
         <p className="mb-4">
-          A Magyar Hírek Összefoglaló egy mesterséges intelligencia által készített napi hírösszefoglaló oldal, amely a legnagyobb magyar hírportálok cikkeit dolgozza fel és foglalja össze.
+          A Magyar Hírek Összefoglaló egy innovatív, mesterséges intelligencia által működtetett hírportál, amely naponta feldolgozza a legnagyobb magyar hírforrások tartalmát. Az oldal egyedülálló módon nem csak összegyűjti, hanem elemzi és összehasonlítja a különböző médiumok hírtálalását és keretezését.
         </p>
         <p>
-          A projekt célja, hogy segítsen eligazodni a napi hírek tengerében, és objektív, tömör áttekintést nyújtson a legfontosabb történésekről.
+          A projekt célja kettős: egyrészt időt takarít meg azzal, hogy tömör, lényegre törő áttekintést ad a napi legfontosabb eseményekről, másrészt segít átlátni a különböző hírforrások közötti különbségeket és hasonlóságokat, így támogatva a médiatudatosságot.
         </p>
       </section>
       
       <section className="mb-10 bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Hogyan működik?</h2>
         <p className="mb-4">
-          Az alkalmazás naponta több alkalommal lekérdezi a legnagyobb magyar hírportálok (Telex, 444, HVG, Origo, Mandiner) címlapját, elemzi a cikkeket, majd a Google Gemini mesterséges intelligencia segítségével készít egy összefoglalót.
+          Az alkalmazás naponta többször, automatikusan begyűjti a nagy magyar hírportálok friss cikkeit, majd a Google Gemini mesterséges intelligencia segítségével elemzi őket.
+        </p>
+        <p className="mb-4">
+          Minden hírforráshoz készül egy átfogó napi összefoglaló, ami a legfontosabb témakörök szerint rendszerezi az információkat. Emellett az alkalmazás összehasonlító elemzést is végez, amely részletesen bemutatja, hogyan tudósítanak az egyes médiumok ugyanazokról az eseményekről, kiemelve a hangvételbeli és keretezésbeli különbségeket.
         </p>
         <p>
-          Az összefoglalók automatikusan készülnek, emberi beavatkozás nélkül, így előfordulhatnak hibák vagy pontatlanságok. Az oldal nem helyettesíti a hírforrások közvetlen olvasását, inkább kiegészíti azt.
+          Az elemzések automatikusan készülnek, ezért előfordulhatnak pontatlanságok. Az oldal célja nem a hírforrások helyettesítése, hanem egy mélyebb rálátás biztosítása a magyar médiakörképre.
         </p>
       </section>
 
@@ -43,14 +46,14 @@ const AboutPage: React.FC = () => {
             <ul className="list-disc list-inside space-y-1">
               <li>FastAPI (Python)</li>
               <li>PostgreSQL (Neon.tech)</li>
-              <li>Google Gemini API</li>
+              <li>Google Gemini AI</li>
               <li>Beautiful Soup (web scraping)</li>
             </ul>
           </div>
         </div>
       </section>
 
-      {/* <section className="bg-white p-6 rounded-lg shadow-md">
+      <section className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-2xl font-semibold mb-4 text-primary-dark">Készítő</h2>
         <p className="mb-2">
           Az alkalmazást Marci készítette portfólió projektként.
@@ -69,7 +72,7 @@ const AboutPage: React.FC = () => {
             LinkedIn
           </a>
         </div>
-      </section> */}
+      </section>
     </div>
   );
 };
