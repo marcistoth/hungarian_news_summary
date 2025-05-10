@@ -66,7 +66,7 @@ async def get_cross_source_analysis(
                 ORDER BY 
                     date DESC, created_at DESC
                 LIMIT 1
-            ''')
+            ''', language)
             
             if not row:
                 return {
