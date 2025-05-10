@@ -26,7 +26,7 @@ const HomePage = () => {
       setError(null);
       try {
         console.log("API URL:", API_URL);
-        const response = await fetch(`${API_URL}/summaries?language=hu`);
+        const response = await fetch(`${API_URL}/summaries?language=${language}`);
         if (!response.ok) {
           let errorDetail = `HTTP error! status: ${response.status}`;
           try {
@@ -53,7 +53,7 @@ const HomePage = () => {
       }
     };
     fetchSummaries();
-  }, []);
+  }, [language]);
 
   // Modal control functions
   const openModal = (summary: Summary) => {

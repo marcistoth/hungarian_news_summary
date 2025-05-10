@@ -38,7 +38,7 @@ async def get_cross_source_analysis(
                 id,
                 date,
                 analysis_json,
-                language
+                language,
                 created_at
             FROM 
                 cross_source_analyses

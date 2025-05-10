@@ -1176,17 +1176,17 @@ async def run_full_analysis_pipeline():
             import traceback
             traceback.print_exc()
     
-    # await safe_scrape(scrape_telex, "telex")
-    # await safe_scrape(scrape_origo, "origo")
-    # await safe_scrape(scrape_hvg, "hvg")
-    # await safe_scrape(scrape_mandiner, "mandiner")
-    # await safe_scrape(scrape_negynegynegy, "444")
-    # await safe_scrape(scrape_24ponthu, "24.hu")
-    # await safe_scrape(scrape_vadhajtasok, "vadhajtasok")
-    # await safe_scrape(scrape_magyarjelen, "magyarjelen")
-    # await safe_scrape(scrape_nyugatifeny, "nyugatifeny")
-    # await safe_scrape(scrape_index, "index")
-    # await safe_scrape(scrape_magyarnemzet, "magyarnemzet")
+    await safe_scrape(scrape_telex, "telex")
+    await safe_scrape(scrape_origo, "origo")
+    await safe_scrape(scrape_hvg, "hvg")
+    await safe_scrape(scrape_mandiner, "mandiner")
+    await safe_scrape(scrape_negynegynegy, "444")
+    await safe_scrape(scrape_24ponthu, "24.hu")
+    await safe_scrape(scrape_vadhajtasok, "vadhajtasok")
+    await safe_scrape(scrape_magyarjelen, "magyarjelen")
+    await safe_scrape(scrape_nyugatifeny, "nyugatifeny")
+    await safe_scrape(scrape_index, "index")
+    await safe_scrape(scrape_magyarnemzet, "magyarnemzet")
 
     # Count successful scrapes
     successful = sum(1 for result in scrape_results.values() if result == "success")
