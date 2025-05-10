@@ -126,14 +126,15 @@ domain_topic_template = ChatPromptTemplate.from_messages([
     """),
 ])
 
+
 cross_source_template = ChatPromptTemplate.from_messages([
     ("system", """
         You are an expert media analyst specializing in Hungarian news content and political bias analysis.
         Your task is to identify common topics across different news sources and analyze how each source
         covers the same events with different perspectives, sentiment, and political leanings.
-        You must write your entire analysis in {language} language.
-        
-        CRITICAL: Your output must strictly follow the Pydantic model structure.
+        You must write your entire analysis in {language}.
+     
+     CRITICAL: Your output must strictly follow the Pydantic model structure.
         For EACH unified topic, you MUST include ALL required fields including:
         - name
         - source_coverage (with all its nested required fields)
@@ -178,10 +179,11 @@ cross_source_template = ChatPromptTemplate.from_messages([
             unified_topics: List[UnifiedTopic]  # Egységesített témák listája
             language: str  # Az elemzés nyelve ("hu" vagy "en")
         ```
-        
-        FIGYELEM: Minden témához KÖTELEZŐ a "comparative_analysis" mezőt kitölteni!
-        Ez a mező összehasonlító elemzést tartalmaz arról, hogyan fedik le az egyes források ugyanazt a témát különböző módon,
-        kiemelve a főbb különbségeket a keretezésben. SOHA ne hagyd üresen ezt a mezőt!
+     
+        Nagyon fontos hogy csak a legfontosabb kivonatokat (laponként max 2-3-at, többet ne) említs meg egy témához,
+        és ebben a helyzetben is összegezd ezeket egyetlen "source coverage" részben, hogy ne legyenek redundánsak.
+        Különösen figyelj arra, hogy egy unified topicc részben ne szerepeljen több source coverage ugyanazzal a domainnel,
+        ilyenkor mindig fűzd össze a releváns információt domainenként egy "cource coverage" részbe
         
         Az elemzésed {language} nyelven készüljön.
         
