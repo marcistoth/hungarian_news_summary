@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { CrossSourceAnalysisResponse, UnifiedTopic } from '../types/analysis';
-import { API_URL, NEWS_SOURCES, getNewsSourceConfig } from '../config';
+import { API_URL, getNewsSourceConfig } from '../config';
 import TopicCard from './TopicCard';
 import TopicAnalysisModal from './TopicAnalysisModal';
 import SentimentDashboard from './SentimentDashboard';
@@ -18,7 +18,6 @@ const TopicAnalysisPage: React.FC = () => {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   
   const location = useLocation();
-  const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   const dateParam = queryParams.get('date');
   const { language, t } = useLanguage();

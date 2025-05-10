@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const AboutPage: React.FC = () => {
 
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
 
 
   return (
