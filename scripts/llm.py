@@ -2,7 +2,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 import google.generativeai as genai
 from backend.config import settings
-from backend.models.db_models import ScrapedArticle, DomainAnalysis, TopicAnalysis
+from backend.models.db_models import ScrapedArticle, DomainAnalysis, TopicAnalysis, Language
 from typing import List
 from datetime import datetime
 import json
@@ -40,7 +40,7 @@ narrative_template = ChatPromptTemplate.from_messages([
         1. A very short, neutral summary (1-2 sentences) suitable for a preview card.
         2. A detailed, structured daily news narrative (approx. 400-500 words).
 
-        Both outputs must be in Hungarian, strictly neutral, unbiased, and based **only** on the facts and focus of the supplied excerpts.
+        Both outputs must be in {language}, strictly neutral, unbiased, and based **only** on the facts and focus of the supplied excerpts.
         Do **not** add any extra commentary, emotion, or opinion. Preserve the original tone and emphasis.
         The detailed narrative must follow the specified section structure and be written as continuous prose.
         Crucially, your entire output **must** use the specified markers for parsing.
@@ -65,7 +65,7 @@ narrative_template = ChatPromptTemplate.from_messages([
 
             `[START_BELFOLD]`
             **Belföld**
-            Ismertesse a kiemelt hazai politikai és közéleti eseményeket világos átvezetések mellett („Eközben…”, „Ugyanakkor…”). Ha nincs releváns belföldi hír a cikkekben, hagyja üresen a markerek között.
+            Ismertesse a kiemelt hazai politikai és közéleti eseményeket világos átvezetések mellett („Eközben…", „Ugyanakkor…"). Ha nincs releváns belföldi hír a cikkekben, hagyja üresen a markerek között.
             `[END_BELFOLD]`
 
             `[START_KULFOLD]`
@@ -87,9 +87,10 @@ narrative_template = ChatPromptTemplate.from_messages([
 
         FONTOS KIKÖTÉSEK A RÉSZLETES HÍRFOLYAMRA:
         - Szigorúan tilos érzelmi töltetű vagy értékelő megjegyzéseket írni.
-        - Kerülje a költői vagy “felpörgető” nyelvezetet.
+        - Kerülje a költői vagy "felpörgető" nyelvezetet.
         - Kizárólag a megadott cikkek tényszerű állításaira támaszkodjon.
         - A szekciók címeit (**Bevezető**, **Belföld** stb.) **ne** írja bele a generált szövegbe, csak a markereket használja a tartalom köré.
+        - A kimenetet {language} nyelven adja meg.
 
         --- START OF ARTICLES ---
         {articles_text}
@@ -102,7 +103,7 @@ domain_topic_template = ChatPromptTemplate.from_messages([
         You are an expert media analyst specializing in Hungarian news content.
         Your task is to identify key topics from articles from a single news source
         and determine the sentiment and political leaning in their reporting.
-        You will return a structured analysis that can be processed automatically.
+        You will return a structured analysis in {language} that can be processed automatically.
     """),
     ("user", """
         Analyze these Hungarian news articles from {domain} and identify around 10 important topics.
@@ -110,11 +111,11 @@ domain_topic_template = ChatPromptTemplate.from_messages([
         For your output, provide:
         1. The domain name (exactly as provided to you)
         2. A list of topics with the following information for each:
-           - A concise topic name in Hungarian
+           - A concise topic name in {language}
            - The sentiment (must be exactly one of: "pozitív", "negatív", or "semleges")
            - The political leaning (must be exactly one of: "bal", "közép-bal", "közép", "közép-jobb", "jobb")
-           - 1-2 key phrases that demonstrate the framing
-           - A brief analysis of how the topic was framed
+           - 1-2 key phrases that demonstrate the framing in {language}
+           - A brief analysis of how the topic was framed in {language}
            - The EXACT full URLs of articles that discuss this topic (copy them exactly as provided)
         
         It is very important that you only select approximately 10 most relevant topics with the highest importance.
@@ -130,7 +131,7 @@ cross_source_template = ChatPromptTemplate.from_messages([
         You are an expert media analyst specializing in Hungarian news content and political bias analysis.
         Your task is to identify common topics across different news sources and analyze how each source
         covers the same events with different perspectives, sentiment, and political leanings.
-        You must write your entire analysis in Hungarian language.
+        You must write your entire analysis in {language}.
     """),
     ("user", """
         Elemezd a következő téma adatokat a különböző magyar hírforrásokból {date} napra vonatkozóan.
@@ -139,11 +140,11 @@ cross_source_template = ChatPromptTemplate.from_messages([
         a hangvételben, politikai beállítottságban és keretezésben.
         
         Minden közös témára vonatkozóan:
-        1. Hozz létre egy egységesített témanevet
+        1. Hozz létre egy egységesített témanevet {language} nyelven
         2. Sorold fel, mely források foglalkoztak vele
         3. Hasonlítsd össze a hangvételt a források között (érték szigorúan a következők közül: "pozitív", "negatív", "semleges")
         4. Hasonlítsd össze a politikai keretezést a források között (érték szigorúan a következők közül: "bal", "közép-bal", "közép", "közép-jobb", "jobb")
-        5. Emeld ki a keretezésben és nézőpontban tapasztalható főbb különbségeket
+        5. Emeld ki a keretezésben és nézőpontban tapasztalható főbb különbségeket {language} nyelven
         6. Ha esetleg egy cikk többször szerepelne a keretezésben, akkor csak egyszer említsd meg
         7. Add meg az eredeti cikkek URL-jeit, hogy azok elérhetőek legyenek az elemzésben
         
@@ -153,19 +154,20 @@ cross_source_template = ChatPromptTemplate.from_messages([
           "date": "{date}",
           "unified_topics": [
             {{
-              "name": "Egységesített téma neve",
+              "name": "Egységesített téma neve {language} nyelven",
               "source_coverage": [
                 {{
                   "domain": "forrás_neve",
-                  "original_topic_name": "Az adott forrás által használt eredeti témanév",
+                  "original_topic_name": "Az adott forrás által használt eredeti témanév {language} nyelven",
                   "sentiment": "hangvétel az adott forrásban",
                   "political_leaning": "politikai beállítottság",
-                  "key_phrases": ["kulcsmondat1", "kulcsmondat2"],
-                  "framing": "keretezés elemzése",
+                  "key_phrases": ["kulcsmondat1 {language} nyelven", "kulcsmondat2 {language} nyelven"],
+                  "framing": "keretezés elemzése {language} nyelven",
                   "article_urls": ["https://full.url.com/article1", "https://full.url.com/article2"]
                 }}
               ],
-              "comparative_analysis": "Elemzés arról, hogy az egyes források hogyan fedik le ugyanazt a témát különböző módon"
+              "comparative_analysis": "Elemzés arról, hogy az egyes források hogyan fedik le ugyanazt a témát különböző módon {language} nyelven",
+              "language": "{language}"
             }}
           ]
         }}
@@ -175,6 +177,7 @@ cross_source_template = ChatPromptTemplate.from_messages([
         Különösen figyelj arra, hogy egy unified topicc részben ne szerepeljen több source coverage ugyanazzal a domainnel,
         ilyenkor mindig fűzd össze a releváns információt domainenként egy "cource coverage" részbe
         
+        Az elemzésed {language} nyelven készüljön.
         
         Íme a témaelemzések az egyes forrásokból:
         
@@ -184,7 +187,7 @@ cross_source_template = ChatPromptTemplate.from_messages([
 
 class LLMService:  
     @staticmethod
-    def summarize_multiple_articles(articles: List[ScrapedArticle]) -> str:
+    def summarize_multiple_articles(articles: List[ScrapedArticle], language: Language = "hu") -> str:
         """
         Generates a single, thorough summary in Hungarian from a list of ScrapedArticle objects.
 
@@ -209,12 +212,15 @@ class LLMService:
             f.write(combined_text)
         try:
             # Create the prompt
-            prompt = narrative_template.invoke({"articles_text": combined_text})
+            prompt = narrative_template.invoke({
+                "articles_text": combined_text,
+                "language": language
+                })
 
             # Invoke the LLM
-            print("Invoking LLM for summarization...")
+            print(f"Invoking LLM for {language} summarization...")
             response = llm.invoke(prompt)
-            print("LLM invocation complete.")
+            print(f"LLM invocation complete for {language} summary.")
 
             with open("response.txt", "w", encoding="utf-8") as f:
                 f.write(response.content)
@@ -227,7 +233,7 @@ class LLMService:
 
 
     @staticmethod
-    def extract_domain_topics(articles: List[ScrapedArticle]) -> DomainAnalysis:
+    def extract_domain_topics(articles: List[ScrapedArticle], language: Language = "hu") -> DomainAnalysis:
         """
         Extracts topics and sentiment from articles of a single domain.
         
@@ -257,7 +263,8 @@ class LLMService:
             # Create the prompt with domain specified
             prompt = domain_topic_template.invoke({
                 "domain": domain,
-                "articles_text": combined_text
+                "articles_text": combined_text,
+                "language": language
             })
 
             structured_llm = ChatGoogleGenerativeAI(
@@ -291,7 +298,8 @@ class LLMService:
             return DomainAnalysis(
                 domain=domain,
                 date=datetime.now().date(),
-                topics=topic_objects
+                topics=topic_objects,
+                language=language
             )
                     
         except Exception as e:
@@ -301,11 +309,12 @@ class LLMService:
             return DomainAnalysis(
                 domain=domain, 
                 date=datetime.now().date(), 
-                topics=[]
+                topics=[],
+                language = language
             )
         
     @staticmethod
-    def cross_source_analysis(date: str, source_data: str) -> CrossSourceAnalysis:
+    def cross_source_analysis(date: str, source_data: str, language: Language = "hu") -> CrossSourceAnalysis:
         """
         Analyzes topics across different sources for a given date.
         
@@ -320,7 +329,8 @@ class LLMService:
 
             prompt = cross_source_template.invoke({
                 "date": date,
-                "source_data": source_data
+                "source_data": source_data,
+                "language": language
             })
 
             # Initialize the LLM
@@ -352,7 +362,8 @@ class LLMService:
             # Return empty but valid CrossSourceAnalysis object
             return CrossSourceAnalysis(
                 date=date,
-                unified_topics=[]
+                unified_topics=[],
+                language=language
             )
 
 llm_service = LLMService()

@@ -12,7 +12,7 @@ from backend.utils.textutils import normalize_domain
 
 @router.get("/summaries", response_model=response_models.SummaryResponseModel)
 async def get_summaries(
-    language: str = Query(default="hu"),
+    language: str = Query(default="hu", description="Language code (hu, en)"),
     date: Optional[dt_date] = Query(default=None),
     conn: asyncpg.Connection = Depends(get_connection)
 ):

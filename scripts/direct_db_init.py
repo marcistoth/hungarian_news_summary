@@ -107,12 +107,21 @@ async def create_tables():
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL,
         analysis_json JSONB NOT NULL,
+        language VARCHAR(5) NOT NULL DEFAULT 'hu',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
 
     await conn.execute('''
     ALTER TABLE topic_analyses ADD COLUMN IF NOT EXISTS article_urls TEXT[] DEFAULT '{}'
+    ''')
+
+    await conn.execute('''
+    ALTER TABLE cross_source_analyses ADD COLUMN IF NOT EXISTS language VARCHAR(5) NOT NULL DEFAULT 'hu'
+    ''')
+
+    await conn.execute('''
+    ALTER TABLE domain_analyses ADD COLUMN IF NOT EXISTS language VARCHAR(5) NOT NULL DEFAULT 'hu'
     ''')
         
     print("Database tables created successfully!")

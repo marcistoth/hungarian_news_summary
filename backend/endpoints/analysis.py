@@ -12,6 +12,7 @@ router = APIRouter(tags=["analysis"])
 @router.get("/cross-source-analysis")
 async def get_cross_source_analysis(
     date: Optional[dt_date] = Query(default=None, description="Date to retrieve analysis for (default: today)"),
+    language: str = Query(default="hu", description="Language code (hu, en)"),
     conn: asyncpg.Connection = Depends(get_connection)
 ):
     """
@@ -26,6 +27,9 @@ async def get_cross_source_analysis(
         - Comparative analysis of how each topic is presented by different media outlets
     """
     current_date = date if date is not None else dt_date.today()
+
+    if language not in ["hu", "en"]:
+        language = "hu" #Default
     
     try:
         # Query the cross_source_analyses table
@@ -34,15 +38,17 @@ async def get_cross_source_analysis(
                 id,
                 date,
                 analysis_json,
+                language
                 created_at
             FROM 
                 cross_source_analyses
             WHERE 
-                date = $1
+                date = $1 AND
+                language = $2
             ORDER BY 
                 created_at DESC
             LIMIT 1
-        ''', current_date)
+        ''', current_date, language)
         
         if not row:
             # If no analysis for the requested date, try to find the most recent one
@@ -51,9 +57,12 @@ async def get_cross_source_analysis(
                     id,
                     date,
                     analysis_json,
+                    language,
                     created_at
                 FROM 
                     cross_source_analyses
+                WHERE
+                    language = $1
                 ORDER BY 
                     date DESC, created_at DESC
                 LIMIT 1
@@ -82,6 +91,7 @@ async def get_cross_source_analysis(
             "success": True,
             "date": row['date'].isoformat(),
             "analysis": analysis_data,
+            "language": row['language'],
             "created_at": row['created_at'].isoformat() if row['created_at'] else None,
             "requested_date": current_date.isoformat() if current_date != row['date'] else None
         }
@@ -95,6 +105,7 @@ async def get_cross_source_analysis(
 @router.get("/unified-topics")
 async def get_unified_topics(
     date: Optional[dt_date] = Query(default=None, description="Date to retrieve topics for (default: today)"),
+    language: str = Query(default="hu", description="Language code (hu, en)"),
     conn: asyncpg.Connection = Depends(get_connection)
 ):
     """
@@ -103,6 +114,9 @@ async def get_unified_topics(
     This is a simplified endpoint that returns only the topic names without the full analysis details.
     """
     current_date = date if date is not None else dt_date.today()
+
+    if language not in ["hu", "en"]:
+        language = "hu" #Default
     
     try:
         # Query the cross_source_analyses table
@@ -112,11 +126,12 @@ async def get_unified_topics(
             FROM 
                 cross_source_analyses
             WHERE 
-                date = $1
+                date = $1 AND
+                language = $2
             ORDER BY 
                 created_at DESC
             LIMIT 1
-        ''', current_date)
+        ''', current_date, language)
         
         if not row:
             return {
@@ -141,7 +156,8 @@ async def get_unified_topics(
         return {
             "success": True,
             "date": current_date.isoformat(),
-            "topics": topics
+            "topics": topics,
+            "language": language,
         }
         
     except Exception as e:
@@ -154,6 +170,7 @@ async def get_unified_topics(
 async def get_topic_coverage(
     topic_name: str,
     date: Optional[dt_date] = Query(default=None, description="Date to retrieve topic coverage for (default: today)"),
+    language: str = Query(default="hu", description="Language code (hu, en)"),
     conn: asyncpg.Connection = Depends(get_connection)
 ):
     """
@@ -164,6 +181,9 @@ async def get_topic_coverage(
     """
     current_date = date if date is not None else dt_date.today()
     
+    if language not in ["hu", "en"]:
+        language = "hu" #Default
+    
     try:
         # Query the cross_source_analyses table
         row = await conn.fetchrow('''
@@ -172,11 +192,12 @@ async def get_topic_coverage(
             FROM 
                 cross_source_analyses
             WHERE 
-                date = $1
+                date = $1 AND
+                language = $2
             ORDER BY 
                 created_at DESC
             LIMIT 1
-        ''', current_date)
+        ''', current_date, language)
         
         if not row:
             return {
@@ -197,7 +218,8 @@ async def get_topic_coverage(
                     "date": current_date.isoformat(),
                     "topic": topic["name"],
                     "coverage": topic.get("source_coverage", []),
-                    "comparative_analysis": topic.get("comparative_analysis", "")
+                    "comparative_analysis": topic.get("comparative_analysis", ""),
+                    "language": language,
                 }
         
         return {

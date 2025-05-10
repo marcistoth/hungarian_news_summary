@@ -1,7 +1,9 @@
 from datetime import datetime, date as dateee
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field, validator
 from .enums import PoliticalLeaning, Sentiment
+
+Language = Literal["hu", "en"]
 
 class ScrapedArticle(BaseModel):
     url: str = Field(..., description="URL of the article")
@@ -16,7 +18,7 @@ class ScrapedArticle(BaseModel):
 
 class Summary(BaseModel):
     domain: str = Field(..., description="Domain the summary is for")
-    language: str = Field(..., description="Language of the summary")
+    language: Language = Field(default="hu", description="Language of the analysis (hu, en)")
     date: datetime = Field(..., description="Date and time the summary was created")
     content: str = Field(..., description="Summary content")
     
@@ -44,10 +46,11 @@ class DomainAnalysis(BaseModel):
     domain: str = Field(..., description="Domain name")
     date: dateee = Field(..., description="Analysis date")
     topics: List[TopicAnalysis] = Field(..., description="Topics analyzed for this domain")
+    language: Language = Field(default="hu", description="Language of the analysis (hu, en)")
     
     class Config:
         arbitrary_types_allowed = True
 
     def __str__(self):
         topics_str = "\n".join([str(t) for t in self.topics])
-        return f"Domain: {self.domain}, Date: {self.date}, Topics:\n{topics_str}"
+        return f"Domain: {self.domain}, Date: {self.date}, Language: {self.language}, Topics:\n{topics_str}"

@@ -20,7 +20,10 @@ gmt_plus_2 = timezone(timedelta(hours=2))
 db_url = os.getenv("DATABASE_URL")
 
 from llm import llm_service
+from backend.models.ai_models import CrossSourceAnalysis, Language
 
+
+SUPPORTED_LANGUAGES = ["hu", "en"]
 
 
 # Import settings, models, and Base from the backend
@@ -87,10 +90,10 @@ async def store_domain_analysis(analysis: DomainAnalysis):
     try:
         # Insert domain analysis
         domain_analysis_id = await conn.fetchval('''
-        INSERT INTO domain_analyses (domain, date)
-        VALUES ($1, $2)
+        INSERT INTO domain_analyses (domain, date, language)
+        VALUES ($1, $2, $3)
         RETURNING id
-        ''', analysis.domain, analysis.date)
+        ''', analysis.domain, analysis.date, analysis.language)
         
         # Insert each topic
         for topic in analysis.topics:
@@ -117,7 +120,7 @@ async def store_domain_analysis(analysis: DomainAnalysis):
     finally:
         await conn.close()
 
-async def generate_cross_source_analysis(target_date=None):
+async def generate_cross_source_analysis(target_date=None, language="hu"):
     """
     Use LLM to analyze how different news sources cover the same topics.
     
@@ -153,12 +156,13 @@ async def generate_cross_source_analysis(target_date=None):
             LEFT JOIN 
                 key_phrases kp ON ta.id = kp.topic_analysis_id
             WHERE 
-                da.date = $1
+                da.date = $1 AND
+                da.language = $2
             GROUP BY
                 da.domain, da.date, ta.id, ta.topic_name, ta.political_leaning, ta.sentiment, ta.framing, ta.article_urls
         )
         SELECT * FROM topic_data
-        ''', target_date)
+        ''', target_date, language)
         
         if not rows:
             return {"error": f"No analysis data found for {target_date}"}
@@ -192,7 +196,7 @@ async def generate_cross_source_analysis(target_date=None):
                     llm_input += f"    Article URLs: {', '.join(topic['article_urls'])}\n"
             llm_input += "\n"
         
-        response = llm_service.cross_source_analysis(target_date.isoformat(), llm_input)
+        response = llm_service.cross_source_analysis(target_date.isoformat(), llm_input, language)
             
         return response
         
@@ -204,7 +208,7 @@ async def generate_cross_source_analysis(target_date=None):
     finally:
         await conn.close()
 
-async def store_cross_source_analysis(analysis_data):
+async def store_cross_source_analysis(analysis_data: CrossSourceAnalysis):
     """Store the cross-source analysis in the database."""
     
     # Convert Pydantic model to dict
@@ -243,11 +247,13 @@ async def store_cross_source_analysis(analysis_data):
             # Use today's date if no date is provided
             date_obj = date.today()
             print("Warning: No date found in analysis, using today's date")
+
+        language = analysis_dict.get("language", "hu")  
             
         await conn.execute('''
-        INSERT INTO cross_source_analyses (date, analysis_json)
-        VALUES ($1, $2)
-        ''', date_obj, analysis_json)
+        INSERT INTO cross_source_analyses (date, analysis_json, language)
+        VALUES ($1, $2, $3)
+        ''', date_obj, analysis_json, language)
             
         print(f"Cross-source analysis stored successfully for {date_obj}")
     except Exception as e:
@@ -281,6 +287,44 @@ def parse_hungarian_date(date_text):
             print(f"Error parsing date '{date_text}': {e}")
     
     return None
+
+async def process_articles_multilingual(articles: List[ScrapedArticle], domain: str):
+    """
+    Process a list of articles and generate summaries and analysis in all supported languages
+    
+    Args:
+        articles: List of scraped articles
+        domain: The domain name these articles belong to
+    """
+    if not articles:
+        print(f"No articles provided for {domain}")
+        return
+    
+    current_time = datetime.now(tz=gmt_plus_2)
+    
+    for language in SUPPORTED_LANGUAGES:
+        try:
+            # Generate summary
+            response = llm_service.summarize_multiple_articles(articles, language=language)
+            print(f"{domain} {language} response generated")
+            
+            summary_obj = Summary(
+                domain=domain,
+                language=language,
+                date=current_time,
+                content=response
+            )
+            await insert_summary_to_db(summary_obj)
+            
+            # Generate domain analysis
+            analysis_data = llm_service.extract_domain_topics(articles, language=language)
+            await store_domain_analysis(analysis_data)
+            
+            print(f"{domain} {language} summary and analysis inserted into db")
+        except Exception as e:
+            print(f"Error processing {domain} content in {language}: {e}")
+            import traceback
+            traceback.print_exc()
 
 async def scrape_telex():
     url = "https://www.telex.hu"
@@ -356,21 +400,7 @@ async def scrape_telex():
     
         articles.append(article_obj)
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"telex response generated")
-    summary_obj = Summary(
-        domain="telex",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"telex summary inserted into db")
+    await process_articles_multilingual(articles, "telex")
 
 
 async def scrape_origo(): 
@@ -449,21 +479,7 @@ async def scrape_origo():
         )
         articles.append(article_obj)
     
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"origo response generated")
-    summary_obj = Summary(
-        domain="origo",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"origo summary inserted into db")
+    await process_articles_multilingual(articles, "origo")
 
 async def scrape_mandiner():    
     url = "https://www.mandiner.hu"
@@ -534,21 +550,7 @@ async def scrape_mandiner():
         )
         articles.append(article_obj)
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"mandiner response generated")
-    summary_obj = Summary(
-        domain="mandiner",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"mandiner summary inserted into db")
+    await process_articles_multilingual(articles, "mandiner")
 
 async def scrape_hvg():
     url = "https://www.hvg.hu"
@@ -614,21 +616,7 @@ async def scrape_hvg():
         )
         articles.append(article_obj)
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"hvg response generated")
-    summary_obj = Summary(
-        domain="hvg",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await  store_domain_analysis(analysis_data)
-
-    print(f"hvg summary inserted into db")
+    await process_articles_multilingual(articles, "hvg")
 
 async def scrape_negynegynegy():
     url = "https://www.444.hu"
@@ -704,21 +692,7 @@ async def scrape_negynegynegy():
         )
         articles.append(article_obj)
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"444 response generated")
-    summary_obj = Summary(
-        domain="444",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"444 summary inserted into db")
+    await process_articles_multilingual(articles, "444")
 
 async def scrape_24ponthu():
     url = "https://www.24.hu"
@@ -790,22 +764,7 @@ async def scrape_24ponthu():
         )
         articles.append(article_obj)
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"24ponthu response generated")
-    summary_obj = Summary(
-        domain="24.hu",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-
-    print(f"24ponthu summary inserted into db")
+    await process_articles_multilingual(articles, "24.hu")
 
 async def scrape_vadhajtasok():
     url = "https://www.vadhajtasok.hu"
@@ -873,21 +832,7 @@ async def scrape_vadhajtasok():
         )
         articles.append(article_obj)
     
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"vadhajtasok response generated")
-    summary_obj = Summary(
-        domain="vadhajtasok",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"vadhajtasok summary inserted into db")
+    await process_articles_multilingual(articles, "vadhajtasok")
 
 async def scrape_magyarjelen():
     url = "https://www.magyarjelen.hu"
@@ -943,21 +888,7 @@ async def scrape_magyarjelen():
         )
         articles.append(article_obj)
     
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"magyarjelen response generated")
-    summary_obj = Summary(
-        domain="magyarjelen",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"magyarjelen summary inserted into db")
+    await process_articles_multilingual(articles, "magyarjelen")
     
 async def scrape_nyugatifeny():
     url = "https://www.nyugatifeny.hu"
@@ -1016,46 +947,7 @@ async def scrape_nyugatifeny():
         )
         articles.append(article_obj)
     
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"nyugatifeny response generated")
-    summary_obj = Summary(
-        domain="nyugatifeny",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"nyugatifeny summary inserted into db")
-
-def save_html_for_debugging(url, html_content):
-    """Save HTML content to a file for debugging purposes."""
-    import os
-    from datetime import datetime
-    
-    # Create a debug directory if it doesn't exist
-    debug_dir = os.path.join(os.path.dirname(__file__), "debug_html")
-    os.makedirs(debug_dir, exist_ok=True)
-    
-    # Create a filename based on timestamp and sanitized URL
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_url = url.replace("https://", "").replace("http://", "").replace("/", "_").replace("?", "_").replace("&", "_")
-    if len(safe_url) > 100:  # Truncate if too long
-        safe_url = safe_url[:100]
-    
-    filename = f"{timestamp}_{safe_url}.html"
-    filepath = os.path.join(debug_dir, filename)
-    
-    # Save the content
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(html_content)
-    
-    print(f"HTML content saved to {filepath}")
-    return filepath
+    await process_articles_multilingual(articles, "nyugatifeny")
 
 async def scrape_index():
     url = "https://index.hu"
@@ -1162,21 +1054,7 @@ async def scrape_index():
 
         await asyncio.sleep(3)  # To avoid overwhelming the server, cause index is a bitch
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"index response generated")
-    summary_obj = Summary(
-        domain="index",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"index summary inserted into db")
+    await process_articles_multilingual(articles, "index")
 
 async def scrape_magyarnemzet():
     url = "https://www.magyarnemzet.hu"
@@ -1263,21 +1141,7 @@ async def scrape_magyarnemzet():
     
         articles.append(article_obj)
 
-    response = llm_service.summarize_multiple_articles(articles)
-    print(f"magyarnemzet response generated")
-    summary_obj = Summary(
-        domain="magyarnemzet",
-        language="hu",
-        date=datetime.now(tz=gmt_plus_2),
-        content=response
-    )
-    await insert_summary_to_db(summary_obj)
-
-    analysis_data = llm_service.extract_domain_topics(articles)
-    
-    await store_domain_analysis(analysis_data)
-
-    print(f"magyarnemzet summary inserted into db")
+    await process_articles_multilingual(articles, "magyarnemzet")
 
 
 async def run_full_analysis_pipeline():
@@ -1312,17 +1176,17 @@ async def run_full_analysis_pipeline():
             import traceback
             traceback.print_exc()
     
-    await safe_scrape(scrape_telex, "telex")
-    await safe_scrape(scrape_origo, "origo")
-    await safe_scrape(scrape_hvg, "hvg")
-    await safe_scrape(scrape_mandiner, "mandiner")
-    await safe_scrape(scrape_negynegynegy, "444")
-    await safe_scrape(scrape_24ponthu, "24.hu")
-    await safe_scrape(scrape_vadhajtasok, "vadhajtasok")
-    await safe_scrape(scrape_magyarjelen, "magyarjelen")
-    await safe_scrape(scrape_nyugatifeny, "nyugatifeny")
-    await safe_scrape(scrape_index, "index")
-    await safe_scrape(scrape_magyarnemzet, "magyarnemzet")
+    # await safe_scrape(scrape_telex, "telex")
+    # await safe_scrape(scrape_origo, "origo")
+    # await safe_scrape(scrape_hvg, "hvg")
+    # await safe_scrape(scrape_mandiner, "mandiner")
+    # await safe_scrape(scrape_negynegynegy, "444")
+    # await safe_scrape(scrape_24ponthu, "24.hu")
+    # await safe_scrape(scrape_vadhajtasok, "vadhajtasok")
+    # await safe_scrape(scrape_magyarjelen, "magyarjelen")
+    # await safe_scrape(scrape_nyugatifeny, "nyugatifeny")
+    # await safe_scrape(scrape_index, "index")
+    # await safe_scrape(scrape_magyarnemzet, "magyarnemzet")
 
     # Count successful scrapes
     successful = sum(1 for result in scrape_results.values() if result == "success")
@@ -1331,11 +1195,12 @@ async def run_full_analysis_pipeline():
     try:
         # Only proceed with cross-source analysis if we have some successful scrapes
         if successful > 0:
-            print("Generating cross-source analysis...")
-            cross_analysis = await generate_cross_source_analysis(current_date)
-            
-            print("Storing cross-source analysis in database...")
-            await store_cross_source_analysis(cross_analysis)
+            for language in SUPPORTED_LANGUAGES:
+                print(f"Generating {language} cross-source analysis...")
+                cross_analysis = await generate_cross_source_analysis(current_date, language)
+                
+                print(f"Storing {language} cross-source analysis in database...")
+                await store_cross_source_analysis(cross_analysis)
             
             print("Analysis pipeline completed successfully")
         else:

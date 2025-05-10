@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field, validator
-from typing import List, Optional
+from typing import List, Optional, Literal
 from .enums import PoliticalLeaning, Sentiment
+
+Language = Literal["hu", "en"]
 
 class TopicAnalysisLLM(BaseModel):
     """Topic analysis structure for LLM responses"""
@@ -17,6 +19,7 @@ class DomainAnalysisLLM(BaseModel):
     
     domain: str = Field(..., description="Domain name (e.g., telex, origo)")
     topics: List[TopicAnalysisLLM] = Field(..., description="Topics analyzed for this domain")
+    language: Language = Field(default="hu", description="Language of the analysis (hu, en)")
 
 class SourceCoverage(BaseModel):
     """Information about how a specific source covers a topic."""
@@ -41,3 +44,4 @@ class CrossSourceAnalysis(BaseModel):
     
     date: str = Field(..., description="The date of analysis in YYYY-MM-DD format")
     unified_topics: List[UnifiedTopic] = Field(..., description="List of unified topics covered by multiple sources")
+    language: Language = Field(default="hu", description="Language of the analysis (hu, en)")
