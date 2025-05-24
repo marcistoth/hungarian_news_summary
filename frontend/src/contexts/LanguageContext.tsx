@@ -26,7 +26,7 @@ const translations: Record<Language, Record<string, string>> = {
     'home.error': 'Hoppá! Hiba történt:',
     'home.noSummaries': 'Jelenleg nincsenek elérhető összefoglalók erre a napra. Nézz vissza később!',
     'home.readMore': 'Teljes összefoglaló',
-    'home.serverNotice': 'Ingyenes szerver használata miatt a betöltés több időt vehet igénybe. Kérjük, maradj az oldalon, hamarosan betölt az alkalmazás.',
+    'home.serverNotice': 'Olyan szervert használunk aminek a betöltése több időt vehet igénybe. Kérjük, maradj az oldalon, hamarosan betölt az alkalmazás.',
     
     // Analysis page
     'analysis.title': 'Hírforrások Összehasonlító Elemzése',
@@ -45,6 +45,19 @@ const translations: Record<Language, Record<string, string>> = {
     'analysis.topicsShowing': 'téma mutatása',
     'analysis.selectedSources': 'kiválasztott forrásból',
     'analysis.noMatchingTopics': 'A kiválasztott forrásokkal nincs találat.',
+
+    // Sentiment and Political Leaning
+    'sentiment.pozitív': 'Pozitív',
+    'sentiment.semleges': 'Semleges',
+    'sentiment.negatív': 'Negatív',
+    'leaning.bal': 'Bal',
+    'leaning.baloldali': 'Baloldali',
+    'leaning.közép-bal': 'Közép-bal',
+    'leaning.közép': 'Közép',
+    'leaning.független': 'Független',
+    'leaning.közép-jobb': 'Közép-jobb',
+    'leaning.jobb': 'Jobb',
+    'leaning.jobboldali': 'Jobboldali',
     
     // Dashboard
     'dashboard.title': 'Hírhangulati Elemzés',
@@ -113,6 +126,19 @@ const translations: Record<Language, Record<string, string>> = {
     'analysis.topicsShowing': 'topics showing from',
     'analysis.selectedSources': 'selected sources',
     'analysis.noMatchingTopics': 'No topics match the selected sources.',
+
+    //Sentiment and political leaning
+    'sentiment.pozitív': 'Positive',
+    'sentiment.semleges': 'Neutral',
+    'sentiment.negatív': 'Negative',
+    'leaning.bal': 'Left',
+    'leaning.baloldali': 'Left-wing',
+    'leaning.közép-bal': 'Center-Left',
+    'leaning.közép': 'Center',
+    'leaning.független': 'Independent',
+    'leaning.közép-jobb': 'Center-Right',
+    'leaning.jobb': 'Right',
+    'leaning.jobboldali': 'Right-wing',
     
     // Dashboard
     'dashboard.title': 'News Sentiment Analysis',

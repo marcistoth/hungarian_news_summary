@@ -116,10 +116,10 @@ const TopicAnalysisModal: React.FC<TopicAnalysisModalProps> = ({ topic, onClose,
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <span className={`text-xs px-2 py-0.5 rounded ${getSentimentColor(source.sentiment)}`}>
-                        {source.sentiment}
+                        {t(`sentiment.${source.sentiment.toLowerCase()}`)}
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded ${getLeaningColor(source.political_leaning)}`}>
-                        {source.political_leaning}
+                        {t(`leaning.${source.political_leaning.toLowerCase().replace(/\s+/g, '-')}`)}
                       </span>
                     </div>
                     
