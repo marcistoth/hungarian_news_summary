@@ -197,27 +197,30 @@ translate_cross_source_analysis_template = ChatPromptTemplate.from_messages([
     ("system", """
         You are an expert multilingual translator and media analyst.
         Your task is to translate a given CrossSourceAnalysis JSON object from {source_lang} to {target_lang}.
-        You must translate ALL user-facing textual content while preserving the JSON structure.
+        The input JSON contains a 'unified_topics' list. You MUST iterate through EACH 'UnifiedTopic' object in this input list.
+        For EACH 'UnifiedTopic' object from the input, you will produce a corresponding translated 'UnifiedTopic' object in the output.
+        The output 'unified_topics' list MUST contain the exact same number of 'UnifiedTopic' objects as the input list, and they MUST appear in the same order.
+        No 'UnifiedTopic' objects from the input list should be omitted or summarized; each one must be fully processed and included in the output.
 
-        Specifically, translate the following fields:
-        - In each 'UnifiedTopic': 'name', 'comparative_analysis'.
-        - In each 'SourceCoverage' (within 'unified_topics'): 'original_topic_name', 'framing'.
-        - Each string within the 'key_phrases' list in 'SourceCoverage'.
+        Translation rules for each 'UnifiedTopic' object:
+        - Translate its 'name' field.
+        - Translate its 'comparative_analysis' field.
+        - For each 'SourceCoverage' object in its 'source_coverage' list:
+            - Translate its 'original_topic_name' field.
+            - Translate its 'framing' field.
+            - Translate each string in its 'key_phrases' list.
+            - The 'domain', 'article_urls', 'sentiment', and 'political_leaning' fields within 'SourceCoverage' MUST remain UNCHANGED.
 
-        The following fields MUST remain UNCHANGED (DO NOT TRANSLATE):
-        - In each 'SourceCoverage': 'domain', 'article_urls', 'sentiment', 'political_leaning'.
-        - The top-level 'date' field.
-     
-        It is absolutely crucial, that you translate all the unified topics, and put them in the output
-        in the same order, as they are in the input
-
-        The 'language' field in the root of the output JSON object MUST be set to '{target_lang}'.
-        The output must be a valid JSON object that conforms to the CrossSourceAnalysis structure.
-        Do not add any explanations or commentary outside the JSON structure.
+        Overall JSON structure rules:
+        - The top-level 'date' field MUST remain UNCHANGED from the input.
+        - The top-level 'language' field in the output JSON object MUST be set to '{target_lang}'.
+        - The output must be a valid JSON object that conforms to the CrossSourceAnalysis structure.
+        - Do not add any explanations or commentary outside the JSON structure.
     """),
     ("user", """
         Please translate the following CrossSourceAnalysis JSON object from {source_lang} to {target_lang}.
         Ensure all specified text fields are translated accurately, maintaining the original meaning and context.
+        The 'unified_topics' list in your output must contain all topics from the input, translated as per the rules.
 
         Input JSON ({source_lang}):
         ```json
