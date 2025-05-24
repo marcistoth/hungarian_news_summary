@@ -4,7 +4,7 @@ import google.generativeai as genai
 from backend.config import settings
 from backend.models.db_models import ScrapedArticle, DomainAnalysis, TopicAnalysis, Language
 from typing import List
-from datetime import datetime
+from datetime import date, datetime
 import json
 import re
 from backend.models.ai_models import CrossSourceAnalysis
@@ -193,6 +193,39 @@ cross_source_template = ChatPromptTemplate.from_messages([
     """)
 ])
 
+translate_cross_source_analysis_template = ChatPromptTemplate.from_messages([
+    ("system", """
+        You are an expert multilingual translator and media analyst.
+        Your task is to translate a given CrossSourceAnalysis JSON object from {source_lang} to {target_lang}.
+        You must translate ALL user-facing textual content while preserving the JSON structure.
+
+        Specifically, translate the following fields:
+        - In each 'UnifiedTopic': 'name', 'comparative_analysis'.
+        - In each 'SourceCoverage' (within 'unified_topics'): 'original_topic_name', 'framing'.
+        - Each string within the 'key_phrases' list in 'SourceCoverage'.
+
+        The following fields MUST remain UNCHANGED (DO NOT TRANSLATE):
+        - In each 'SourceCoverage': 'domain', 'article_urls', 'sentiment', 'political_leaning'.
+        - The top-level 'date' field.
+     
+        It is absolutely crucial, that you translate all the unified topics, and put them in the output
+        in the same order, as they are in the input
+
+        The 'language' field in the root of the output JSON object MUST be set to '{target_lang}'.
+        The output must be a valid JSON object that conforms to the CrossSourceAnalysis structure.
+        Do not add any explanations or commentary outside the JSON structure.
+    """),
+    ("user", """
+        Please translate the following CrossSourceAnalysis JSON object from {source_lang} to {target_lang}.
+        Ensure all specified text fields are translated accurately, maintaining the original meaning and context.
+
+        Input JSON ({source_lang}):
+        ```json
+        {input_analysis_json}
+        ```
+    """)
+])
+
 class LLMService:  
     @staticmethod
     def summarize_multiple_articles(articles: List[ScrapedArticle], language: Language = "hu") -> str:
@@ -322,6 +355,134 @@ class LLMService:
             )
         
     @staticmethod
+    def translate_text(text_to_translate: str, source_lang: str, target_lang: str) -> str:
+        """
+        Translates text from a source language to a target language using an LLM.
+
+        Args:
+            text_to_translate: The text to be translated.
+            source_lang: The source language code (e.g., "hu").
+            target_lang: The target language code (e.g., "en").
+
+        Returns:
+            The translated text, or an error message string if translation fails.
+        """
+        if not text_to_translate:
+            return ""
+        if source_lang == target_lang:
+            return text_to_translate
+
+        try:
+            prompt_text = (
+                f"Translate the following text accurately from {source_lang} to {target_lang}. "
+                f"Preserve the original meaning and tone. "
+                f"CRITICAL: The formatting of the original text, including paragraph breaks, line breaks, "
+                f"and any existing bracketed markers (e.g., `[EXAMPLE_MARKER]`), MUST be preserved EXACTLY "
+                f"in the translated output. Do NOT translate the bracketed markers themselves; "
+                f"they should appear verbatim in the output. "
+                f"Provide ONLY the translated text. Do not add any of your own commentary, explanations, "
+                f"or any new markers not present in the original text. The output should be ready to use directly, "
+                f"maintaining the same overall structure and format as the input."
+                f"If the input is a json strocture, you must pay extra attention to keep its original structure,"
+                f"only translating the required text in the process"
+                f"Text to translate:\n"
+                f"--- START OF TEXT ---\n"
+                f"{text_to_translate}\n"
+                f"--- END OF TEXT ---"
+            )
+            
+            translation_llm = ChatGoogleGenerativeAI(
+                model=settings.GEMINI_MODEL,
+                google_api_key=gemini_api_key,
+                temperature=0.2
+            )
+
+            response = translation_llm.invoke(prompt_text)
+            translated_text = response.content.strip()
+            
+            print(f"Translation to '{target_lang}' complete.")
+            return translated_text
+
+        except Exception as e:
+            print(f"Error during text translation from '{source_lang}' to '{target_lang}': {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Error translating to {target_lang}: {e}"
+
+    @staticmethod
+    def translate_cross_Source_analysis(analysis_to_translate: CrossSourceAnalysis, source_lang: str, target_lang: str) -> CrossSourceAnalysis:
+        """
+        Translates all textual content within a CrossSourceAnalysis object from a source language
+        to a target language using an LLM with structured output.
+
+        Args:
+            analysis_to_translate: The CrossSourceAnalysis object to translate.
+            source_lang: The source language code (e.g., "hu").
+            target_lang: The target language code (e.g., "en").
+
+        Returns:
+            A new CrossSourceAnalysis object with translated content and updated language field.
+            Returns the original object if source_lang and target_lang are the same.
+            Returns an empty CrossSourceAnalysis object on error.
+        """
+        if source_lang == target_lang:
+            return analysis_to_translate
+
+        if not analysis_to_translate or not analysis_to_translate.unified_topics:
+            print(f"Warning: No data in CrossSourceAnalysis to translate from {source_lang} to {target_lang}.")
+            return CrossSourceAnalysis(
+                date=analysis_to_translate.date if analysis_to_translate else date.today().isoformat(),
+                unified_topics=[],
+                language=target_lang
+            )
+
+        try:
+            input_analysis_dict = analysis_to_translate.model_dump()
+            if isinstance(input_analysis_dict.get("date"), date):
+                input_analysis_dict["date"] = input_analysis_dict["date"].isoformat()
+            
+            input_analysis_json = json.dumps(input_analysis_dict, ensure_ascii=False, indent=2)
+
+            prompt = translate_cross_source_analysis_template.invoke({
+                "source_lang": source_lang,
+                "target_lang": target_lang,
+                "input_analysis_json": input_analysis_json
+            })
+
+            big_llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash-preview-04-17",
+                google_api_key=gemini_api_key,
+                temperature=settings.GEMINI_TEMPERATURE
+            )
+            structured_llm = big_llm.with_structured_output(CrossSourceAnalysis)
+
+            print(f"Translating CrossSourceAnalysis from '{source_lang}' to '{target_lang}' for date {analysis_to_translate.date}...")
+            translated_analysis = structured_llm.invoke(prompt)
+
+            #save the analysis in txt for debugging
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+            with open(f"translated_cross_source_analysis_{timestamp}.json", "w", encoding="utf-8") as f:
+                f.write(translated_analysis.model_dump_json(indent=2, exclude_none=True))
+
+            if translated_analysis:
+                translated_analysis.language = target_lang
+                translated_analysis.date = analysis_to_translate.date
+                print(f"CrossSourceAnalysis successfully translated to '{target_lang}'.")
+                return translated_analysis
+            else:
+                raise ValueError("LLM returned an empty or invalid translated analysis.")
+
+        except Exception as e:
+            print(f"Error during CrossSourceAnalysis translation from '{source_lang}' to '{target_lang}': {e}")
+            import traceback
+            traceback.print_exc()
+            return CrossSourceAnalysis(
+                date=analysis_to_translate.date if analysis_to_translate else date.today().isoformat(),
+                unified_topics=[],
+                language=target_lang
+            )
+        
+    @staticmethod
     def cross_source_analysis(date: str, source_data: str, language: Language = "hu") -> CrossSourceAnalysis:
         """
         Analyzes topics across different sources for a given date.
@@ -351,8 +512,6 @@ class LLMService:
             # Set up structured output
             structured_llm = big_llm.with_structured_output(CrossSourceAnalysis)
             
-            # Get structured response
-            print(f"Cross-source analysis for date: {date}...")
             result = structured_llm.invoke(prompt)
             
             # Save for debugging

@@ -5,7 +5,7 @@ import asyncpg
 from datetime import date, datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 import requests
-from typing import List
+from typing import List, Optional
 from dateutil import parser as date_parser
 from dotenv import load_dotenv
 import re
@@ -20,10 +20,11 @@ gmt_plus_2 = timezone(timedelta(hours=2))
 db_url = os.getenv("DATABASE_URL")
 
 from llm import llm_service
-from backend.models.ai_models import CrossSourceAnalysis, Language
+from backend.models.ai_models import CrossSourceAnalysis
 
 
 SUPPORTED_LANGUAGES = ["hu", "en"]
+PRIMARY_LANGUAGE = "hu"
 
 
 # Import settings, models, and Base from the backend
@@ -301,30 +302,129 @@ async def process_articles_multilingual(articles: List[ScrapedArticle], domain: 
         return
     
     current_time = datetime.now(tz=gmt_plus_2)
+
+    primary_summary_content: Optional[str] = None
     
-    for language in SUPPORTED_LANGUAGES:
+    if PRIMARY_LANGUAGE in SUPPORTED_LANGUAGES:
         try:
-            # Generate summary
-            response = llm_service.summarize_multiple_articles(articles, language=language)
-            print(f"{domain} {language} response generated")
+            print(f"Generating summary for {domain} in primary language '{PRIMARY_LANGUAGE}'...")
+            primary_summary_content = llm_service.summarize_multiple_articles(articles, language=PRIMARY_LANGUAGE)
             
-            summary_obj = Summary(
-                domain=domain,
-                language=language,
-                date=current_time,
-                content=response
-            )
-            await insert_summary_to_db(summary_obj)
-            
-            # Generate domain analysis
-            analysis_data = llm_service.extract_domain_topics(articles, language=language)
-            await store_domain_analysis(analysis_data)
-            
-            print(f"{domain} {language} summary and analysis inserted into db")
+            if primary_summary_content and not primary_summary_content.lower().startswith("error generating summary"):
+                print(f"{domain} '{PRIMARY_LANGUAGE}' primary summary generated successfully.")
+                summary_obj_primary = Summary(
+                    domain=domain,
+                    language=PRIMARY_LANGUAGE,
+                    date=current_time,
+                    content=primary_summary_content
+                )
+                await insert_summary_to_db(summary_obj_primary)
+            else:
+                print(f"Failed to generate primary summary for {domain} in '{PRIMARY_LANGUAGE}'. LLM Output: {primary_summary_content}")
+                primary_summary_content = None
+
         except Exception as e:
-            print(f"Error processing {domain} content in {language}: {e}")
+            print(f"Exception during primary summary generation for {domain} in '{PRIMARY_LANGUAGE}': {e}")
             import traceback
             traceback.print_exc()
+            primary_summary_content = None
+    else:
+        print(f"Primary language '{PRIMARY_LANGUAGE}' is not in SUPPORTED_LANGUAGES. Cannot generate primary summary for {domain}.")
+
+    # Process each supported language
+    for lang_code in SUPPORTED_LANGUAGES:
+
+        if lang_code == PRIMARY_LANGUAGE:
+            pass
+        elif primary_summary_content:
+            try:
+                print(f"Translating summary for {domain} from '{PRIMARY_LANGUAGE}' to '{lang_code}'...")
+                translated_content = llm_service.translate_text(
+                    text_to_translate=primary_summary_content,
+                    source_lang=PRIMARY_LANGUAGE,
+                    target_lang=lang_code
+                )
+                if translated_content and not translated_content.lower().startswith("error translating to"):
+                    print(f"{domain} summary translated to '{lang_code}' successfully.")
+                    summary_obj_translated = Summary(
+                        domain=domain,
+                        language=lang_code,
+                        date=current_time,
+                        content=translated_content
+                    )
+                    await insert_summary_to_db(summary_obj_translated)
+                else:
+                    print(f"Failed to translate summary for {domain} to '{lang_code}'. LLM Output: {translated_content}")
+            except Exception as e:
+                print(f"Exception during summary translation for {domain} to '{lang_code}': {e}")
+                import traceback
+                traceback.print_exc()
+        elif lang_code != PRIMARY_LANGUAGE:
+             print(f"Skipping summary translation for {domain} to '{lang_code}' as primary summary is missing or failed.")
+
+    if PRIMARY_LANGUAGE in SUPPORTED_LANGUAGES:
+        try:
+            print(f"Generating domain analysis for {domain} in '{PRIMARY_LANGUAGE}' for date {current_time}...")
+
+            analysis_data = llm_service.extract_domain_topics(articles, language=PRIMARY_LANGUAGE) 
+            
+            if analysis_data and analysis_data.topics: 
+                await store_domain_analysis(analysis_data) 
+                print(f"{domain} '{PRIMARY_LANGUAGE}' domain analysis generated and inserted into db.")
+            else:
+                print(f"No topics found or error in domain analysis for {domain} in '{PRIMARY_LANGUAGE}'. Skipping storage.")
+        except Exception as e:
+            print(f"Exception during domain analysis for {domain} in '{PRIMARY_LANGUAGE}': {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"Primary language '{PRIMARY_LANGUAGE}' not in supported languages. Skipping domain analysis for {domain}.")
+
+
+async def generate_and_store_multilingual_cross_analysis(current_date: date):
+    """
+    Generates cross-source analysis in the primary language, stores it,
+    then translates and stores it for other supported languages.
+    """
+    primary_cross_analysis_obj: Optional[CrossSourceAnalysis] = None
+    primary_analysis_generated_successfully = False
+
+    print(f"Generating {PRIMARY_LANGUAGE} cross-source analysis for date {current_date}...")
+
+    primary_cross_analysis_obj = await generate_cross_source_analysis(current_date, PRIMARY_LANGUAGE) 
+    
+    if primary_cross_analysis_obj and not hasattr(primary_cross_analysis_obj, 'error') and primary_cross_analysis_obj.unified_topics:
+        print(f"Storing {PRIMARY_LANGUAGE} cross-source analysis in database...")
+        await store_cross_source_analysis(primary_cross_analysis_obj)
+        primary_analysis_generated_successfully = True
+        if isinstance(primary_cross_analysis_obj.date, date):
+             primary_cross_analysis_obj.date = primary_cross_analysis_obj.date.isoformat()
+
+    elif hasattr(primary_cross_analysis_obj, 'error'):
+        print(f"Failed to generate {PRIMARY_LANGUAGE} cross-source analysis. Error: {primary_cross_analysis_obj.error}")
+    else:
+        print(f"No topics found in {PRIMARY_LANGUAGE} cross-source analysis. Skipping storage.")
+
+    if primary_analysis_generated_successfully and primary_cross_analysis_obj:
+        for lang_code_str in SUPPORTED_LANGUAGES:
+            if lang_code_str == PRIMARY_LANGUAGE:
+                continue
+            print(f"Attempting to translate cross-source analysis from {PRIMARY_LANGUAGE} to {lang_code_str}...")
+            translated_analysis_obj = llm_service.translate_cross_Source_analysis(
+                analysis_to_translate=primary_cross_analysis_obj,
+                source_lang=PRIMARY_LANGUAGE,
+                target_lang=lang_code_str,
+            )
+
+            if translated_analysis_obj and translated_analysis_obj.unified_topics:
+                print(f"Storing translated {lang_code_str} cross-source analysis in database...")
+                await store_cross_source_analysis(translated_analysis_obj)
+            elif translated_analysis_obj and not translated_analysis_obj.unified_topics:
+                 print(f"Translated {lang_code_str} cross-source analysis resulted in no topics. Skipping storage.")
+            else:
+                print(f"Failed to translate or translation resulted in no valid data for {lang_code_str} cross-source analysis. Skipping storage.")
+    elif not primary_analysis_generated_successfully:
+        print(f"Skipping translation of cross-source analysis as primary ({PRIMARY_LANGUAGE}) analysis failed or yielded no topics.")
 
 async def scrape_telex():
     url = "https://www.telex.hu"
@@ -1192,23 +1292,18 @@ async def run_full_analysis_pipeline():
     successful = sum(1 for result in scrape_results.values() if result == "success")
     print(f"\nScraping completed: {successful} out of {len(scrape_results)} sources were successful")
     
-    try:
-        # Only proceed with cross-source analysis if we have some successful scrapes
-        if successful > 0:
-            for language in SUPPORTED_LANGUAGES:
-                print(f"Generating {language} cross-source analysis...")
-                cross_analysis = await generate_cross_source_analysis(current_date, language)
-                
-                print(f"Storing {language} cross-source analysis in database...")
-                await store_cross_source_analysis(cross_analysis)
-            
-            print("Analysis pipeline completed successfully")
-        else:
-            print("No sources were successfully scraped, skipping cross-source analysis")
-    except Exception as e:
-        print(f"Error in cross-source analysis: {e}")
-        import traceback
-        traceback.print_exc()
+    if successful > 0:
+        try:
+            await generate_and_store_multilingual_cross_analysis(current_date)
+            print("Cross-source analysis pipeline completed successfully.")
+        except Exception as e:
+            print(f"Error in multilingual cross-source analysis pipeline: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("No sources were successfully scraped, skipping cross-source analysis.")
+
+    print("Full analysis pipeline finished.")
 
 if __name__ == "__main__":
     print("Running scraper script...")
