@@ -28,7 +28,7 @@ class SourceCoverage(BaseModel):
     original_topic_name: str = Field(..., description="The original topic name used by this source")
     sentiment: str = Field(..., description="The sentiment in the coverage (pozitív, negatív, semleges)")
     political_leaning: str = Field(..., description="The political leaning (bal, közép-bal, közép, közép-jobb, jobb)")
-    key_phrases: List[str] = Field(..., description="Key phrases or quotes demonstrating the framing")
+    key_phrases: List[str] = Field(..., description="Key sentences demonstrating the framing")
     framing: str = Field(..., description="Analysis of how the topic was framed by this source")
     article_urls: List[str] = Field(default_factory=list, description="URLs of articles covering this topic")
 

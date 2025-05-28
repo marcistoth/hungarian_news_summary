@@ -114,7 +114,7 @@ domain_topic_template = ChatPromptTemplate.from_messages([
            - A concise topic name in {language}
            - The sentiment (must be exactly one of: "pozitív", "negatív", or "semleges")
            - The political leaning (must be exactly one of: "bal", "közép-bal", "közép", "közép-jobb", "jobb")
-           - 1-2 key phrases that demonstrate the framing in {language}
+           - 1-2 key sentences (important that they are whole sentences) from the article that demonstrate the framing in {language}
            - A brief analysis of how the topic was framed in {language}
            - The EXACT full URLs of articles that discuss this topic (copy them exactly as provided)
         
